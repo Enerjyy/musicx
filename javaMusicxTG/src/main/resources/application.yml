@@ -1,0 +1,14 @@
+spring:
+  config:
+    import: "optional:file:.env[.properties]"
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: telegram-bot-group-latest1
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+bot:
+  token: ${BOT_TOKEN}
+  name: ${BOT_NAME}
