@@ -72,7 +72,7 @@ services:
 
   frontend:
     build:
-      context: tsReactMainPage
+      context: tsReactMainPage/musicx
       args:
         VITE_API_URL: https://musicxapp.duckdns.org/api
     container_name: react_frontend
