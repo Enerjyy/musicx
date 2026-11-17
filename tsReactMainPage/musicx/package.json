@@ -13,7 +13,8 @@
   "dependencies": {
     "pitchfinder": "^2.3.4",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "tone": "^15.1.22"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -28,6 +29,6 @@
     "orval": "^8.45.0",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.71.2",
-    "vite": "^8.3.4"
+    "vite": "^8.3.8"
   }
 }
