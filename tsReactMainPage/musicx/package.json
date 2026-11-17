@@ -13,7 +13,9 @@
     "tone": "^15.1.22"
   },
   "devDependencies": {
-    "typescript": "^6.0.3"
+    "@vitejs/plugin-react": "^4.3.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0"
   },
   "private": true
 }
