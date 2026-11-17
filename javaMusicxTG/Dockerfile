@@ -5,6 +5,8 @@ COPY gradlew build.gradle.kts settings.gradle.kts ./
 COPY gradle ./gradle
 COPY src ./src
 
+RUN chmod +x gradlew
+
 RUN ./gradlew bootJar -DskipTests
 
 FROM eclipse-temurin:21-jre-alpine
