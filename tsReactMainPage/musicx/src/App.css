@@ -16,8 +16,9 @@
   align-items: baseline;
   gap: 12px;
   padding: 18px 24px 14px;
-  /* Telegram fullscreen draws over the status bar — keep the title clear of it */
-  padding-top: calc(18px + var(--tg-safe-top));
+  /* Telegram's floating header (close/minimise) overlaps the viewport in
+     fullscreen — --tg-inset-top folds in contentSafeAreaInset for that. */
+  padding-top: calc(18px + var(--tg-inset-top));
   padding-left: calc(24px + var(--tg-safe-left));
   padding-right: calc(24px + var(--tg-safe-right));
 }
@@ -57,7 +58,7 @@
   justify-content: center;
   padding: 10px 16px 14px;
   /* Home indicator / Telegram bottom inset */
-  padding-bottom: calc(14px + var(--tg-safe-bottom));
+  padding-bottom: calc(14px + var(--tg-inset-bottom));
   padding-left: calc(16px + var(--tg-safe-left));
   padding-right: calc(16px + var(--tg-safe-right));
 }
@@ -96,14 +97,14 @@
 @media (max-width: 480px) {
   .app-header {
     padding: 14px 16px 10px;
-    padding-top: calc(14px + var(--tg-safe-top));
+    padding-top: calc(14px + var(--tg-inset-top));
     padding-left: calc(16px + var(--tg-safe-left));
     padding-right: calc(16px + var(--tg-safe-right));
   }
 
   .app-nav {
     padding: 8px 12px 12px;
-    padding-bottom: calc(12px + var(--tg-safe-bottom));
+    padding-bottom: calc(12px + var(--tg-inset-bottom));
     padding-left: calc(12px + var(--tg-safe-left));
     padding-right: calc(12px + var(--tg-safe-right));
   }

@@ -51,6 +51,14 @@
   --tg-safe-right: env(safe-area-inset-right, 0px);
   --tg-content-top: 0px;
   --tg-content-bottom: 0px;
+
+  /* Effective insets. In fullscreen Telegram floats its own header (the
+     close/minimise pill) over the viewport, and that height arrives via
+     contentSafeAreaInset — NOT safeAreaInset, which only covers the device
+     notch/status bar. Taking the max avoids double-padding on clients that
+     report the header in both values. */
+  --tg-inset-top: max(var(--tg-safe-top), var(--tg-content-top));
+  --tg-inset-bottom: max(var(--tg-safe-bottom), var(--tg-content-bottom));
 }
 
 *,
