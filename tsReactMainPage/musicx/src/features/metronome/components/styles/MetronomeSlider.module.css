@@ -1,162 +1,211 @@
-/* Original Metronome Styling */
+/* ── Metronome ──────────────────────────────────────────────────────── */
 
-.container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-    background: #ffffff;
-    border-radius: 8px;
-    padding: 20px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    border: 1px solid #e0e0e0;
+/* ── Cat / play button ──────────────────────────────────────────────── */
+
+.catButton {
+  display: grid;
+  place-items: center;
+  width: 132px;
+  height: 132px;
+  padding: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  outline: 1px solid var(--line);
+  transition: box-shadow 0.18s ease, outline-color 0.18s ease;
+}
+
+.catButton:hover {
+  outline-color: var(--line-strong);
+  box-shadow: 0 4px 14px rgba(22, 21, 15, 0.09);
+}
+
+.catButton:active {
+  box-shadow: var(--shadow-sm);
+}
+
+.catButton img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ── Tempo readout ──────────────────────────────────────────────────── */
+
+.tempo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  user-select: none;
+}
+
+.tempoValue {
+  font-size: 46px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.tempoUnit {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* ── Slider ─────────────────────────────────────────────────────────── */
+
+.sliderRow {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .rangeInput {
-    margin-top: 15px;
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    height: 8px;
-    background: linear-gradient(90deg, #e0e0e0 0%, #c0c0c0 100%);
-    border-radius: 4px;
-    outline: none;
-    cursor: pointer;
-    transition: background 0.2s;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.rangeInput::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--r-full);
+  background: var(--surface-3);
+}
+
+.rangeInput::-moz-range-track {
+  height: 4px;
+  border-radius: var(--r-full);
+  background: var(--surface-3);
 }
 
 .rangeInput::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: #2196f3;
-    box-shadow: 0 2px 6px rgba(33, 150, 243, 0.3);
-    cursor: pointer;
-    transition: transform 0.2s ease, background 0.2s;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--bg);
 }
 
-.rangeInput::-webkit-slider-thumb:hover {
-    background: #1976d2;
-    transform: scale(1.1);
+.rangeInput::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--bg);
 }
 
-.rangeInput::-webkit-slider-thumb:active {
-    transform: scale(0.95);
+.rangeInput:active::-webkit-slider-thumb {
+  box-shadow: 0 0 0 5px var(--accent-soft);
 }
 
-p {
-    display: inline-block;
-    margin: 15px 0;
-    font-size: 28px;
-    background: linear-gradient(135deg, #2196f3 0%, #1976d2 100%);
-    color: white;
-    padding: 12px 20px;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
-    font-weight: 600;
-    text-align: center;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+.rangeInput:active::-moz-range-thumb {
+  box-shadow: 0 0 0 5px var(--accent-soft);
 }
 
-.sliderContainer {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 100%;
-    margin: 0;
-    margin-bottom: 20px;
-    background: #ffffff;
-    border-radius: 6px;
-    padding: 15px;
-    border: 1px solid #f0f0f0;
-}
+/* ── Beat markers ───────────────────────────────────────────────────── */
 
-.beatsContainer {
-    display: flex;
-    justify-content: center;
-    gap: 12px;
-    margin: 20px 0;
+.beats {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .beatDot {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background-color: #e0e0e0;
-    border: 1px solid #c0c0c0;
-    transition: all 0.2s ease;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  transition: background-color 0.12s ease;
 }
 
-.beatDot.active {
-    background-color: #2196f3;
-    border-color: #1976d2;
-    transform: scale(1.2);
-    box-shadow: 0 0 8px rgba(33, 150, 243, 0.4);
+.beatDot--active {
+  background: var(--accent);
 }
 
-.label {
-    font-size: 14px;
-    color: #666666;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    font-weight: 500;
+/* ── Numeric fields ─────────────────────────────────────────────────── */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
 }
 
-.inputWrapper {
-    display: flex;
-    align-items: center;
-    background-color: #f8f9fa;
-    border: 2px solid #e0e0e0;
-    border-radius: 6px;
-    padding: 8px 12px;
-    transition: border-color 0.2s ease;
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+.fieldLabel {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding-left: 2px;
 }
 
-.inputWrapper:focus-within {
-    border-color: #2196f3;
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05), 0 0 0 3px rgba(33, 150, 243, 0.1);
+.inputWrap {
+  display: flex;
+  align-items: center;
+  background: var(--surface);
+  border-radius: var(--r-sm);
+  outline: 1px solid var(--line);
+  transition: outline-color 0.15s ease;
+}
+
+.inputWrap:focus-within {
+  outline-color: var(--accent);
 }
 
 .input {
-    background: transparent;
-    border: none;
-    outline: none;
-    color: #333333;
-    font-size: 16px;
-    font-family: inherit;
-    width: 100%;
-    text-align: center;
-    font-weight: 500;
-    -moz-appearance: textfield;
+  width: 100%;
+  padding: 9px 10px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  background: transparent;
+  border: none;
+  outline: none;
+  -moz-appearance: textfield;
 }
 
 .input::-webkit-outer-spin-button,
 .input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
+  -webkit-appearance: none;
+  margin: 0;
 }
 
-/* Responsive design */
-@media (max-width: 768px) {
-    .container {
-        padding: 15px;
-        margin: 10px;
-    }
-    
-    p {
-        font-size: 24px;
-        padding: 10px 16px;
-    }
-    
-    .beatDot {
-        width: 14px;
-        height: 14px;
-    }
-    
-    .input {
-        font-size: 14px;
-    }
+@media (max-width: 420px) {
+  .catButton {
+    width: 108px;
+    height: 108px;
+  }
+
+  .tempoValue {
+    font-size: 38px;
+  }
+}
+
+@media (max-height: 620px) {
+  .catButton {
+    width: 88px;
+    height: 88px;
+  }
+
+  .tempoValue {
+    font-size: 32px;
+  }
 }

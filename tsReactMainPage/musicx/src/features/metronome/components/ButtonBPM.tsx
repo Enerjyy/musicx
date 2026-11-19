@@ -1,4 +1,5 @@
 import type {JSX} from "react";
+import styles from './styles/MetronomeSlider.module.css';
 
 interface MetronomeButtonProps {
     currentImage: string;
@@ -6,9 +7,16 @@ interface MetronomeButtonProps {
 }
 
 const MetronomeButton = ({ currentImage, toggleSlider }: MetronomeButtonProps): JSX.Element => {
-    return (<div>
-        <button onClick={toggleSlider}> <img src={currentImage}/></button>
-    </div>)
+    return (
+        <button
+            type="button"
+            className={styles.catButton}
+            onClick={toggleSlider}
+            aria-label="Start / stop metronome"
+        >
+            <img src={currentImage} alt="" draggable={false} />
+        </button>
+    )
 }
 
 export default MetronomeButton;

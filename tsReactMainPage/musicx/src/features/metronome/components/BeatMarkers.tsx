@@ -1,24 +1,27 @@
 import type {JSX} from "react";
 import styles from './styles/MetronomeSlider.module.css';
 
-interface beatMarkerProps {
+interface BeatMarkersProps {
     totalBeats: number;
     currentBeat: number;
 }
 
-const beatMarkers = ({totalBeats, currentBeat}: beatMarkerProps): JSX.Element => {
-    const beatsArray = Array.from({ length: totalBeats }, (_, index) => index);
+const BeatMarkers = ({ totalBeats, currentBeat }: BeatMarkersProps): JSX.Element => {
+    const beats = Array.from({ length: totalBeats }, (_, index) => index);
 
     return (
-        <div className={styles.beatsContainer}>
-            {beatsArray.map((index) => (
+        <div className={styles.beats} aria-hidden="true">
+            {beats.map((index) => (
                 <div
                     key={index}
-                    className={`${styles.beatDot} ${currentBeat === index ? styles.active : ''}`}
+                    className={
+                        styles.beatDot +
+                        (currentBeat === index ? ` ${styles['beatDot--active']}` : '')
+                    }
                 />
             ))}
         </div>
-    );
+    )
 }
 
-export default beatMarkers;
+export default BeatMarkers;

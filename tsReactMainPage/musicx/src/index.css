@@ -1,62 +1,136 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+:root {
+  /* Palette — warm neutrals + single accent */
+  --bg: #f6f4f1;
+  --surface: #ffffff;
+  --surface-2: #efece7;
+  --surface-3: #e7e3dd;
+
+  --ink: #16150f;
+  --ink-2: #5c574f;
+  --ink-3: #948d84;
+
+  --line: #e3dfd8;
+  --line-strong: #d2ccc2;
+
+  --accent: #b45309;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(180, 83, 9, 0.09);
+  --accent-line: rgba(180, 83, 9, 0.32);
+
+  --ok: #15803d;
+  --danger: #b91c1c;
+
+  /* Piano specific */
+  --key-white: #fffdf9;
+  --key-white-edge: #d9d3c9;
+  --key-black: #1b1a17;
+  --key-black-edge: #000000;
+
+  /* Shape */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 18px;
+  --r-full: 999px;
+
+  /* Type */
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px rgba(22, 21, 15, 0.05);
+  --shadow-md: 0 2px 8px rgba(22, 21, 15, 0.06), 0 1px 2px rgba(22, 21, 15, 0.04);
+
+  /* Chrome height (header) — used for layout maths */
+  --header-h: 61px;
 }
 
-html, body {
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
   height: 100%;
-  font-family: var(--retro-font);
-  background-color: var(--retro-bg);
-  color: var(--retro-text);
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 #root {
   height: 100vh;
-  width: 100vw;
+  height: 100dvh;
 }
 
-/* Reset some browser default styles for retro feel */
-button {
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
+button,
+input {
   font: inherit;
   color: inherit;
+  background: none;
+  border: none;
+}
+
+button {
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 img {
+  display: block;
   max-width: 100%;
-  height: auto;
-  image-rendering: pixelated;
 }
 
-/* Ensure proper scrolling behavior */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Scrollbars */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--retro-primary) var(--retro-bg);
+  scrollbar-color: var(--line-strong) transparent;
 }
 
-/* Webkit scrollbar styling */
 ::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--retro-bg);
-  border: 2px solid var(--retro-primary);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--retro-primary);
-  border: 2px solid var(--retro-surface);
-  border-radius: 0;
+  background: var(--line-strong);
+  border: 3px solid transparent;
+  border-radius: var(--r-full);
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--retro-secondary);
+  background: var(--ink-3);
+  background-clip: padding-box;
+  border-width: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

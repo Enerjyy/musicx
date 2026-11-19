@@ -5,10 +5,11 @@ interface VerticalScrollingInputProps {
     min: number;
     max: number;
     value: number | string;
-    setValue: (value:number) => void;
+    setValue: (value: number) => void;
     label: string;
 }
-const ScrollingInput = ({min, max, value, setValue, label}: VerticalScrollingInputProps): JSX.Element => {
+
+const ScrollingInput = ({ min, max, value, setValue, label }: VerticalScrollingInputProps): JSX.Element => {
     const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
         const rawValue = e.target.value;
         if (rawValue === "") {
@@ -21,18 +22,19 @@ const ScrollingInput = ({min, max, value, setValue, label}: VerticalScrollingInp
         if (numericValue <= max) {
             setValue(numericValue);
         }
-
     }
+
     return (
-        <div className={styles.container}>
-            {label && <label className={styles.label}>{label}</label>}
-            <div className={styles.inputWrapper}>
-                <input type={"number"}
-                       value={value}
-                       min={min}
-                       max={max}
-                       onChange={handleChange}
-                       className={styles.input}
+        <div className={styles.field}>
+            <label className={styles.fieldLabel}>{label}</label>
+            <div className={styles.inputWrap}>
+                <input
+                    type="number"
+                    value={value}
+                    min={min}
+                    max={max}
+                    onChange={handleChange}
+                    className={styles.input}
                 />
             </div>
         </div>

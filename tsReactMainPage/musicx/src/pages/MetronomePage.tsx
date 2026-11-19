@@ -4,17 +4,32 @@ import MetronomeSlider from "../features/metronome/components/SlidebarBPM.tsx";
 import BeatMarkers from "../features/metronome/components/BeatMarkers.tsx";
 import ScrollingInput from "../features/metronome/components/VerticalScrollingInput.tsx";
 import styles from "./styles/MetronomePage.module.css";
+
 const MetronomePage = () => {
-    const {currentImage, toggleSlider, BPMValue, setBPMValue, currentBeat, numerator, setNumerator, denominator, setDenominator} = useCatSlider();
+    const {
+        currentImage,
+        toggleSlider,
+        BPMValue,
+        setBPMValue,
+        currentBeat,
+        numerator,
+        setNumerator,
+        denominator,
+        setDenominator,
+    } = useCatSlider();
+
     return (
-        <div>
-            <MetronomeButton currentImage={currentImage} toggleSlider={toggleSlider}/>
-            <MetronomeSlider BPMValue={BPMValue} setBPMValue={setBPMValue}/>
-            <BeatMarkers totalBeats={numerator} currentBeat={currentBeat}/>
-            <div className={styles.controlsRow}>
-                <ScrollingInput max={340} min={20} value={BPMValue} setValue={setBPMValue} label={"BPM"} />
-                <ScrollingInput max={16} min={1} value={numerator} setValue={setNumerator} label={"Numerator"} />
-                <ScrollingInput max={16} min={1} value={denominator} setValue={setDenominator} label={"Denominator"} />
+        <div className={styles.panel}>
+            <MetronomeButton currentImage={currentImage} toggleSlider={toggleSlider} />
+
+            <MetronomeSlider BPMValue={BPMValue} setBPMValue={setBPMValue} />
+
+            <BeatMarkers totalBeats={numerator} currentBeat={currentBeat} />
+
+            <div className={styles.fields}>
+                <ScrollingInput max={340} min={20} value={BPMValue} setValue={setBPMValue} label="BPM" />
+                <ScrollingInput max={16} min={1} value={numerator} setValue={setNumerator} label="Num" />
+                <ScrollingInput max={16} min={1} value={denominator} setValue={setDenominator} label="Den" />
             </div>
         </div>
     );

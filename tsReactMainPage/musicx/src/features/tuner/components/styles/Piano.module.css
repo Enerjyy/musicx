@@ -1,234 +1,205 @@
-.piano {
-    --key-h: clamp(46px, 6.2vh, 58px);
+/* ── Piano ────────────────────────────────────────────────────────────
+   Vertical scrolling keyboard: white keys stacked top→bottom (high→low),
+   black keys absolutely positioned over them.
 
-    position: relative;
-    width: 100%;
-    height: 100%;
-    padding-bottom: env(safe-area-inset-bottom);
-    overflow-x: hidden;
-    overflow-y: auto;
-    background: linear-gradient(180deg, #171a20 0%, #0c0f13 100%);
-    box-shadow:
-            inset 0 14px 18px -16px rgba(0, 0, 0, 0.9),
-            inset 0 -14px 18px -16px rgba(0, 0, 0, 0.9);
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
-    user-select: none;
-    -webkit-user-select: none;
-    touch-action: pan-y;
+   IMPORTANT: no `transform` on .key states. The piano is the scroll
+   container, so transforms would alter its scrollable overflow and make
+   the bottom edge flicker on press.
+   ──────────────────────────────────────────────────────────────────── */
+
+.piano {
+  --key-h: clamp(44px, 5.6vh, 54px);
+
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding-bottom: env(safe-area-inset-bottom);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  background: var(--surface-2);
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
 }
 
 .piano::-webkit-scrollbar {
-    width: 8px;
+  width: 9px;
 }
 
 .piano::-webkit-scrollbar-track {
-    background: transparent;
+  background: transparent;
 }
 
 .piano::-webkit-scrollbar-thumb {
-    border: 2px solid transparent;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.18);
-    background-clip: padding-box;
+  background: var(--line-strong);
+  border: 3px solid transparent;
+  border-radius: var(--r-full);
+  background-clip: padding-box;
 }
 
 .piano::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.28);
-    background-clip: padding-box;
+  background: var(--ink-3);
+  background-clip: padding-box;
+  border-width: 2px;
 }
 
 .inner {
-    position: relative;
-    /* Высота = высота всех клавиш. Чёрные клавиши позиционируются в процентах
-       от неё, поэтому здесь нельзя задавать min-height/padding: иначе они
-       начинают «съезжать» относительно белых при прокрутке. */
+  position: relative;
+  /* Height comes only from the white keys. Black keys are positioned in %
+     of this box, so no padding/min-height here — otherwise they drift
+     relative to the whites while scrolling. */
 }
 
 .whites {
-    display: flex;
-    flex-direction: column;
+  display: flex;
+  flex-direction: column;
 }
 
 .key {
-    position: relative;
-    appearance: none;
-    margin: 0;
-    border: 0;
-    padding: 0;
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-    user-select: none;
-    -webkit-user-select: none;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: pan-y;
+  position: relative;
+  appearance: none;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: pan-y;
 }
 
 .key:focus-visible {
-    outline: 2px solid rgba(124, 232, 213, 0.7);
-    outline-offset: -2px;
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
 }
 
 .label {
-    pointer-events: none;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    font-variant-numeric: tabular-nums;
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
 }
+
+/* ── White keys ─────────────────────────────────────────────────────── */
 
 .white {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    width: 100%;
-    height: var(--key-h);
-    flex: 0 0 var(--key-h);
-    padding: 0 14px;
-    border-bottom: 1px solid rgba(30, 24, 16, 0.45);
-    background: linear-gradient(90deg, #f7f1e5 0%, #fcf8ef 58%, #e8e0ce 100%);
-    box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.7),
-            inset 0 -4px 6px rgba(120, 102, 74, 0.08);
-    color: rgba(38, 32, 24, 0.42);
-    transition:
-            background 0.12s ease,
-            box-shadow 0.08s ease,
-            transform 0.06s ease;
-}
-
-.white .label {
-    color: rgba(38, 32, 24, 0.42);
-}
-
-.white.isC .label {
-    color: rgba(38, 32, 24, 0.78);
-}
-
-.white.isC::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 3px;
-    background: linear-gradient(
-            180deg,
-            rgba(124, 232, 213, 0.12),
-            rgba(124, 232, 213, 0.5),
-            rgba(124, 232, 213, 0.12)
-    );
-    pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: var(--key-h);
+  flex: 0 0 var(--key-h);
+  padding: 0 14px;
+  color: var(--ink-3);
+  background: var(--key-white);
+  border-bottom: 1px solid var(--key-white-edge);
+  transition: background-color 0.1s ease;
 }
 
 .white:hover {
-    background: linear-gradient(90deg, #fffcf5 0%, #fffdf8 58%, #eee6d5 100%);
+  background: #ffffff;
+}
+
+.white.isC {
+  color: var(--ink-2);
+  font-weight: 600;
 }
 
 .white.isPressed {
-    z-index: 1;
-    background: linear-gradient(90deg, #ffe4b8 0%, #ffc978 58%, #eda94d 100%);
-    box-shadow:
-            inset 0 0 0 2px rgba(255, 255, 255, 0.32),
-            inset -8px 0 14px rgba(150, 90, 0, 0.12);
+  background: #fdf1e3;
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
 }
+
+.white.isPressed .label {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ── Black keys ─────────────────────────────────────────────────────── */
 
 .black {
-    position: absolute;
-    right: 0;
-    z-index: 2;
-    width: 62%;
-    display: flex;
-    align-items: center;
-    padding: 0 10px;
-    border: 1px solid rgba(0, 0, 0, 0.72);
-    border-right: 0;
-    border-radius: 8px 0 0 8px;
-    background: linear-gradient(90deg, #2b3038 0%, #15191f 55%, #07090c 100%);
-    box-shadow:
-            inset 1px 0 0 rgba(255, 255, 255, 0.15),
-            inset 0 -4px 7px rgba(0, 0, 0, 0.5),
-            0 5px 10px rgba(0, 0, 0, 0.35);
-    color: rgba(255, 255, 255, 0.46);
-    transition:
-            background 0.12s ease,
-            box-shadow 0.08s ease,
-            transform 0.06s ease;
-}
-
-.black .label {
-    color: rgba(255, 255, 255, 0.46);
-    font-size: 10px;
+  position: absolute;
+  right: 0;
+  z-index: 2;
+  width: 62%;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  color: rgba(255, 255, 255, 0.42);
+  background: var(--key-black);
+  border-left: 1px solid var(--key-black-edge);
+  border-radius: 0 5px 5px 0;
+  transition: background-color 0.1s ease;
 }
 
 .black:hover {
-    background: linear-gradient(90deg, #353b45 0%, #1a1e25 55%, #090b0e 100%);
+  background: #2a2925;
 }
 
 .black.isPressed {
-    z-index: 3;
-    background: linear-gradient(90deg, #8a7046 0%, #4b3a23 55%, #2b2114 100%);
-    box-shadow:
-            inset 0 0 0 1px rgba(255, 201, 120, 0.25),
-            0 0 18px rgba(255, 201, 120, 0.28);
+  background: var(--accent);
 }
+
+.black.isPressed .label {
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+/* ── Detected note ──────────────────────────────────────────────────── */
 
 .key.isDetected::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: linear-gradient(90deg, rgba(124, 232, 213, 0.48), rgba(124, 232, 213, 0.12));
-    box-shadow:
-            inset 0 0 0 2px rgba(124, 232, 213, 0.8),
-            0 0 26px rgba(124, 232, 213, 0.28);
-    pointer-events: none;
-    animation: detectedBreathe 1.8s ease-in-out infinite;
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(180, 83, 9, 0.1);
+  box-shadow: inset 0 0 0 2px var(--accent-line);
+  pointer-events: none;
 }
 
-@keyframes detectedBreathe {
-    0%,
-    100% {
-        opacity: 0.78;
-    }
-    50% {
-        opacity: 1;
-    }
-}
+/* ── Responsive ─────────────────────────────────────────────────────── */
 
 @media (max-width: 760px) {
-    .piano {
-        --key-h: 50px;
-        scrollbar-width: none;
-    }
+  .piano {
+    --key-h: 48px;
+    scrollbar-width: none;
+  }
 
-    .piano::-webkit-scrollbar {
-        width: 0;
-        height: 0;
-    }
+  .piano::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
 
-    .white {
-        padding: 0 12px;
-    }
+  .white {
+    padding: 0 12px;
+  }
 
-    .label {
-        font-size: 11px;
-    }
+  .black {
+    width: 64%;
+    padding: 0 8px;
+  }
 
-    .black {
-        width: 64%;
-        padding: 0 8px;
-    }
-
-    .black .label {
-        font-size: 10px;
-    }
+  .label {
+    font-size: 10.5px;
+  }
 }
 
 @media (max-width: 380px) {
-    .piano {
-        --key-h: 47px;
-    }
+  .piano {
+    --key-h: 46px;
+  }
+
+  .black {
+    width: 66%;
+    padding: 0 6px;
+  }
 }
