@@ -2,12 +2,14 @@ import './App.css'
 import MetronomePage from "./pages/MetronomePage.tsx";
 import TunerPage from "./pages/TunerPage.tsx";
 import { useState, useEffect } from 'react';
+
 const PAGES = {
     tuner: {label: 'Tuner', component: <TunerPage />},
     metronome: {label: 'Metronome', component: <MetronomePage />},
 }
 
-const PageKeys = Object.keys(PAGES) as (keyof typeof PAGES)[];
+type PageKey = keyof typeof PAGES;
+const PageKeys = Object.keys(PAGES) as PageKey[];
 
 const App = () => {
     const [currentPage, setCurrentPage] = useState<PageKey>('tuner');
@@ -81,7 +83,5 @@ const App = () => {
         </div>
     );
 }
-
-type PageKey = keyof typeof PAGES;
 
 export default App

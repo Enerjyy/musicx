@@ -1,5 +1,5 @@
 import type {JSX} from "react";
-import styles from '../styles/MetronomeSlider.module.css';
+import styles from './styles/MetronomeSlider.module.css';
 
 interface MetronomeButtonProps {
     currentImage: string;
