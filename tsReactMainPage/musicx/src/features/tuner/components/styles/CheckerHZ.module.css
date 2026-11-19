@@ -304,16 +304,28 @@
 /* Responsive design */
 @media (max-width: 760px) {
     .retro-checker {
-        grid-template-columns: 58% minmax(0, 1fr);
+        grid-template-columns: 1fr; /* Stack vertically on mobile */
+        grid-template-rows: auto 1fr; /* Header, piano, side panel */
+        max-height: calc(100vh - var(--navbar-height, 60px));
+    }
+    
+    .retro-keyboard {
+        order: 1; /* Piano at top */
+        min-height: 200px; /* Give piano a minimum height */
     }
     
     .retro-side {
+        order: 2; /* Side panel below piano */
         padding: 15px;
+        margin-top: 10px;
+        background: var(--retro-panel-bg);
+        border-top: 3px solid var(--retro-primary);
+        box-shadow: inset 0 -4px 8px rgba(0, 20, 0, 0.5);
     }
     
     .retro-mic-button {
-        top: 15px;
-        right: 15px;
+        position: static; /* Reset absolute positioning */
+        margin: 0 auto 10px auto; /* Center with left alignment */
         width: 50px;
         height: 50px;
     }
@@ -323,31 +335,53 @@
         height: 22px;
     }
     
+    .retro-mic-label {
+        position: static; /* Reset absolute positioning */
+        transform: none;
+        margin: 5px auto;
+        text-align: center;
+        font-size: 0.8rem;
+    }
+    
     .retro-note {
-        font-size: clamp(48px, 15vw, 78px);
+        font-size: clamp(36px, 12vw, 78px); /* Larger font for mobile */
+        text-align: .center; /* Center align note display */
     }
     
     .retro-hz {
-        font-size: 18px;
+        font-size: 16px;
+        text-align: center;
     }
     
     .retro-tuning-display {
-        margin: 15px;
-        padding: 15px;
+        margin: 10px auto;
+        padding: 12px;
+        width: 80%; /* Don't stretch full width */
+        text-align: center;
     }
     
     .retro-tuning-value {
-        font-size: 1.5rem;
+        font-size: 1.4rem;
+    }
+    
+    /* Mobile-specific piano styling */
+    .piano {
+        margin: 10px 0;
+        border-width: 2px;
+    }
+    
+    .piano::-webkit-scrollbar {
+        width: 4px; /* Thinner scrollbar for mobile */
     }
 }
 
 @media (max-width: 380px) {
     .retro-checker {
-        grid-template-columns: 60% minmax(0, 1fr);
+        grid-template-columns: 1fr;
     }
     
     .retro-note {
-        font-size: 46px;
+        font-size: 42px; /* Even larger for very small screens */
     }
     
     .retro-mic-button {
@@ -358,6 +392,19 @@
     .retro-mic-button svg {
         width: 20px;
         height: 20px;
+    }
+    
+    .retro-tuning-display {
+        width: 90%;
+        padding: 10px;
+    }
+    
+    .retro-tuning-value {
+        font-size: 1.3rem;
+    }
+    
+    .retro-tuning-status {
+        font-size: 0.9rem;
     }
 }
 
@@ -378,5 +425,15 @@
     
     .retro-hz {
         font-size: 16px;
+    }
+    
+    .retro-tuning-display {
+        margin: 8px auto;
+        padding: 8px;
+        width: 70%;
+    }
+    
+    .retro-tuning-value {
+        font-size: 1.2rem;
     }
 }

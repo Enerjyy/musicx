@@ -240,24 +240,25 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--retro-secondary), rgba(255, 255, 0, 0.1));
+  background: linear-gradient(90deg, var(--retro-secondary), rgba(255, 255, 0, 0.05));
   box-shadow: 
-    inset 0 0 0 3px var(--retro-secondary),
-    0 0 25px var(--retro-secondary),
-    inset 0 0 10px rgba(255, 255, 0, 0.5);
+    inset 0 0 0 2px var(--retro-secondary),
+    0 0 15px rgba(255, 255, 0, 0.3),
+    inset 0 0 5px rgba(255, 255, 0, 0.2);
   pointer-events: none;
-  animation: detectedBreathe 1.8s ease-in-out infinite;
+  animation: detectedPulse 2s ease-in-out infinite;
   image-rendering: pixelated;
+  opacity: 0.7; /* Reduced opacity to avoid covering other elements */
 }
 
-@keyframes detectedBreathe {
+@keyframes detectedPulse {
   0%, 100% { 
-    opacity: 0.8;
-    box-shadow: inset 0 0 0 3px var(--retro-secondary), 0 0 25px var(--retro-secondary);
+    opacity: 0.5;
+    box-shadow: inset 0 0 0 2px var(--retro-secondary), 0 0 10px rgba(255, 255, 0, 0.2);
   }
   50% { 
-    opacity: 1;
-    box-shadow: inset 0 0 0 3px var(--retro-secondary), 0 0 40px var(--retro-secondary);
+    opacity: 0.8;
+    box-shadow: inset 0 0 0 2px var(--retro-secondary), 0 0 20px rgba(255, 255, 0, 0.4);
   }
 }
 
