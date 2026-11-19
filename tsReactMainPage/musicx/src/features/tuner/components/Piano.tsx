@@ -148,7 +148,12 @@ const Piano = ({
         return () => window.removeEventListener("resize", handleResize);
     }, []);
 
-    const getSynth = () => {
+    /**
+     * Лениво создаёт синтезатор. Раньше его вызывал attack(); после
+     * переписывания на sync() вызов потерялся, synthRef оставался null и
+     * звука не было вообще. Теперь здесь единственная точка создания.
+     */
+    const getSynth = useCallback(() => {
         if (!synthRef.current) {
             const synth = new Tone.PolySynth(Tone.Synth, {
                 oscillator: { type: "triangle" },
@@ -166,7 +171,7 @@ const Piano = ({
         }
 
         return synthRef.current;
-    };
+    }, []);
 
     /**
      * Приводит звук и подсветку в соответствие с желаемым состоянием.
@@ -181,10 +186,11 @@ const Piano = ({
         const desired = new Set<string>(heldPointersRef.current.values());
         if (latchedRef.current) desired.add(latchedRef.current);
 
-        const synth = synthRef.current;
+        // Синтезатор создаём лениво здесь — до первого звука граф не нужен.
+        const synth = desired.size > 0 ? getSynth() : synthRef.current;
         const audioReady = synth !== null && Tone.getContext().state === "running";
 
-        if (audioReady) {
+        if (audioReady && synth) {
             for (const note of Array.from(soundingRef.current)) {
                 if (desired.has(note)) continue;
                 synth.triggerRelease(note);
@@ -199,7 +205,7 @@ const Piano = ({
         }
 
         setPressedNotes(new Set(heldPointersRef.current.values()));
-    }, []);
+    }, [getSynth]);
 
     /**
      * Синхронно стартует AudioContext внутри user gesture, затем синхронизирует.
@@ -211,10 +217,10 @@ const Piano = ({
     const ensureAudio = useCallback(
         (shortTapNote?: string) => {
             void unlockAudio().then(() => {
-                const synth = synthRef.current;
+                const synth = getSynth();
                 const ready = synth !== null && Tone.getContext().state === "running";
 
-                if (ready && synth && shortTapNote) {
+                if (ready && shortTapNote) {
                     const stillHeld = Array.from(heldPointersRef.current.values()).includes(
                         shortTapNote,
                     );
@@ -228,7 +234,7 @@ const Piano = ({
                 sync();
             });
         },
-        [sync],
+        [getSynth, sync],
     );
 
     const setLatch = useCallback(
