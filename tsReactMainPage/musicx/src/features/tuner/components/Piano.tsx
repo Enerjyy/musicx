@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import * as Tone from "tone";
 import { unlockAudio } from "../../../audio/unlockAudio";
@@ -6,6 +6,8 @@ import styles from "./styles/Piano.module.css";
 
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"] as const;
 const BLACK_SIZE_RATIO = 0.62;
+
+/** Окно двойного тапа для «залипания» ноты. */
 const DOUBLE_TAP_MS = 320;
 
 type KeyKind = "white" | "black";
@@ -81,20 +83,26 @@ interface PianoProps {
 }
 
 const Piano = ({
-                   startOctave = 1,
-                   octaves = 6,
-                   detectedNote = null,
-               }: PianoProps) => {
+    startOctave = 1,
+    octaves = 6,
+    detectedNote = null,
+}: PianoProps) => {
+    /** Ноты, которые сейчас звучат. Единственный источник истины для UI. */
     const [pressedNotes, setPressedNotes] = useState<ReadonlySet<string>>(() => new Set());
-    const heldPointersRef = useRef<Map<number, string>>(new Map());
+
+    /** Залипшая нота (двойной тап). Живёт отдельно от pointer-состояния. */
+    const [latchedNote, setLatchedNote] = useState<string | null>(null);
+
     const synthRef = useRef<Tone.PolySynth | null>(null);
 
-    // «Залипшая» нота: включается двойным тапом, снимается любым касанием
-    // вне её. Держится отдельно от pointer-состояния, поэтому pointerup её
-    // не отпускает.
-    const [latchedNote, setLatchedNote] = useState<string | null>(null);
+    /** pointerId -> нота, которую этот палец/кнопка держит. */
+    const heldPointersRef = useRef<Map<number, string>>(new Map());
+
+    /** Реально звучащие ноты — чтобы не дублировать triggerAttack. */
+    const soundingRef = useRef<Set<string>>(new Set());
+
     const latchedRef = useRef<string | null>(null);
-    const lastTapRef = useRef<{ note: string; time: number }>({ note: "", time: 0 });
+    const lastTapRef = useRef<{ note: string; time: number } | null>(null);
 
     const viewportRef = useRef<HTMLDivElement | null>(null);
     const keyRefsRef = useRef<Map<string, HTMLButtonElement>>(new Map());
@@ -160,50 +168,79 @@ const Piano = ({
         return synthRef.current;
     };
 
-    // Резолвится, когда AudioContext разморожен. Первый вызов должен произойти
-    // синхронно внутри user gesture, иначе браузер отклонит его — поэтому
-    // запускаем прямо в обработчике, а не после await.
-    const ensureAudio = () => unlockAudio();
+    /**
+     * Приводит звук и подсветку в соответствие с желаемым состоянием.
+     * Единственная точка, где что-либо звучит или перестаёт звучать, —
+     * поэтому она идемпотентна и её можно вызывать откуда угодно.
+     *
+     * Желаемое = все запиннутые указателями ноты + залипшая нота.
+     * Подсветка `isPressed` при этом показывает только запиннутые,
+     * чтобы залипшая клавиша выглядела отдельно.
+     */
+    const sync = useCallback(() => {
+        const desired = new Set<string>(heldPointersRef.current.values());
+        if (latchedRef.current) desired.add(latchedRef.current);
 
-    const attack = (noteToPlay: string) => {
-        const synth = getSynth();
+        const synth = synthRef.current;
+        const audioReady = synth !== null && Tone.getContext().state === "running";
 
-        // Если контекст ещё не запущен — стартуем и играем в любом случае.
-        // Раньше здесь был ранний выход по !stillHeld, из-за чего короткий
-        // тап (pointerup до разморозки контекста) не звучал вообще.
-        void ensureAudio().then(() => {
-            if (Tone.getContext().state !== "running") return;
-
-            const stillHeld = Array.from(heldPointersRef.current.values()).includes(noteToPlay);
-            if (stillHeld) {
-                synth.triggerAttack(noteToPlay);
-            } else {
-                // Тап уже отпущен — играем короткий "щелчок", чтобы нажатие
-                // всё равно было слышно.
-                synth.triggerAttackRelease(noteToPlay, 0.18);
+        if (audioReady) {
+            for (const note of Array.from(soundingRef.current)) {
+                if (desired.has(note)) continue;
+                synth.triggerRelease(note);
+                soundingRef.current.delete(note);
             }
-        });
-    };
 
-    const releaseLatch = () => {
-        const note = latchedRef.current;
-        if (!note) return;
+            for (const note of desired) {
+                if (soundingRef.current.has(note)) continue;
+                synth.triggerAttack(note);
+                soundingRef.current.add(note);
+            }
+        }
 
-        latchedRef.current = null;
-        setLatchedNote(null);
-        synthRef.current?.triggerRelease(note);
+        setPressedNotes(new Set(heldPointersRef.current.values()));
+    }, []);
 
-        setPressedNotes((prev) => {
-            if (!prev.has(note)) return prev;
-            const next = new Set(prev);
-            next.delete(note);
-            return next;
-        });
-    };
+    /**
+     * Синхронно стартует AudioContext внутри user gesture, затем синхронизирует.
+     *
+     * `shortTapNote` — нота, которую тапнули, но отпустили до того, как контекст
+     * успел разморозиться. Без этого первый тап в жизни приложения уходил в
+     * тишину: sync() видел, что нота уже не удерживается, и играть было нечего.
+     */
+    const ensureAudio = useCallback(
+        (shortTapNote?: string) => {
+            void unlockAudio().then(() => {
+                const synth = synthRef.current;
+                const ready = synth !== null && Tone.getContext().state === "running";
 
-    // Стабильная ссылка, чтобы useEffect с [] не захватывал устаревшее замыкание.
-    const releaseLatchRef = useRef(releaseLatch);
-    releaseLatchRef.current = releaseLatch;
+                if (ready && synth && shortTapNote) {
+                    const stillHeld = Array.from(heldPointersRef.current.values()).includes(
+                        shortTapNote,
+                    );
+                    const stillLatched = latchedRef.current === shortTapNote;
+
+                    if (!stillHeld && !stillLatched) {
+                        synth.triggerAttackRelease(shortTapNote, 0.18);
+                    }
+                }
+
+                sync();
+            });
+        },
+        [sync],
+    );
+
+    const setLatch = useCallback(
+        (note: string | null) => {
+            if (latchedRef.current === note) return;
+
+            latchedRef.current = note;
+            setLatchedNote(note);
+            sync();
+        },
+        [sync],
+    );
 
     const handlePointerDown = (
         event: ReactPointerEvent<HTMLButtonElement>,
@@ -211,136 +248,120 @@ const Piano = ({
     ) => {
         if (event.pointerType === "mouse" && event.button !== 0) return;
 
-        // Любое касание вне «залипшей» клавиши снимает её. Это проверяется
-        // до двойного тапа, чтобы тап по другой клавише сначала отпустил
-        // предыдущую, а потом уже играл новую.
-        const latched = latchedRef.current;
-        if (latched && latched !== noteToPlay) {
-            releaseLatch();
-        }
-
-        const now = Date.now();
-        const last = lastTapRef.current;
-        const isDoubleTap =
-            last.note === noteToPlay && now - last.time <= DOUBLE_TAP_MS && latched !== noteToPlay;
-
-        lastTapRef.current = { note: noteToPlay, time: isDoubleTap ? 0 : now };
-
-        if (isDoubleTap) {
-            // Залипаем: играем и держим до внешнего касания.
-            latchedRef.current = noteToPlay;
-            setLatchedNote(noteToPlay);
-
-            setPressedNotes((prev) => {
-                if (prev.has(noteToPlay)) return prev;
-                const next = new Set(prev);
-                next.add(noteToPlay);
-                return next;
-            });
-
-            // Клавиша уже могла быть зажата первым тапом — тогда второй
-            // simply пере-атакует, что даёт явный щелчок подтверждения.
-            attack(noteToPlay);
-            return;
-        }
-
         // На тач-устройствах не мешаем вертикальной прокрутке клавиатуры
         if (event.pointerType === "mouse") event.preventDefault();
 
+        const now = performance.now();
+        const latched = latchedRef.current;
+
+        // Эту ноту уже держит другой палец — это мультитач по одной клавише,
+        // а не двойной тап. Просто регистрируем ещё один указатель.
+        const alreadyHeld = Array.from(heldPointersRef.current.values()).includes(noteToPlay);
+        if (alreadyHeld) {
+            heldPointersRef.current.set(event.pointerId, noteToPlay);
+            ensureAudio(noteToPlay);
+            return;
+        }
+
+        // Тап по самой залипшей клавише — снимаем её (toggle).
+        if (latched === noteToPlay) {
+            lastTapRef.current = null;
+            setLatch(null);
+            return;
+        }
+
+        // Тап по любой другой клавише сначала сбрасывает залипшую.
+        // lastTapRef не трогаем, чтобы двойной тап по новой клавише сработал.
+        if (latched) setLatch(null);
+
+        const last = lastTapRef.current;
+        const isDoubleTap = last !== null && last.note === noteToPlay && now - last.time <= DOUBLE_TAP_MS;
+
+        if (isDoubleTap) {
+            // Второй тап подряд — залипаем и НЕ регистрируем указатель:
+            // pointerup тогда ничего не отпустит, нота держится до внешнего тапа.
+            lastTapRef.current = null;
+            setLatch(noteToPlay);
+            ensureAudio(noteToPlay);
+            return;
+        }
+
+        lastTapRef.current = { note: noteToPlay, time: now };
+
         heldPointersRef.current.set(event.pointerId, noteToPlay);
-
-        setPressedNotes((prev) => {
-            if (prev.has(noteToPlay)) return prev;
-            const next = new Set(prev);
-            next.add(noteToPlay);
-            return next;
-        });
-
-        attack(noteToPlay);
+        ensureAudio(noteToPlay);
     };
 
     useEffect(() => {
-        const releaseNote = (noteToRelease: string) => {
-            synthRef.current?.triggerRelease(noteToRelease);
-
-            setPressedNotes((prev) => {
-                if (!prev.has(noteToRelease)) return prev;
-                const next = new Set(prev);
-                next.delete(noteToRelease);
-                return next;
-            });
-        };
-
         const handlePointerUp = (event: PointerEvent) => {
-            const noteToRelease = heldPointersRef.current.get(event.pointerId);
-            if (!noteToRelease) return;
+            if (!heldPointersRef.current.has(event.pointerId)) return;
 
             heldPointersRef.current.delete(event.pointerId);
-
-            // Залипшая нота живёт отдельно от pointer-состояния: обычный
-            // pointerup её не отпускает.
-            if (latchedRef.current === noteToRelease) return;
-
-            const stillHeld = Array.from(heldPointersRef.current.values()).includes(noteToRelease);
-            if (!stillHeld) releaseNote(noteToRelease);
+            sync();
         };
 
+        /** Снимаем всё, включая залипшую ноту — чтобы не было зависших звуков. */
         const silenceAll = () => {
+            if (heldPointersRef.current.size === 0 && latchedRef.current === null) return;
+
             heldPointersRef.current.clear();
+            latchedRef.current = null;
+            lastTapRef.current = null;
 
-            // Снимаем всё, кроме залипшей ноты — она держится до касания
-            // по другой клавише или по фону.
-            const keep = latchedRef.current;
+            setLatchedNote(null);
+            sync();
 
-            setPressedNotes((prev) => {
-                for (const note of prev) {
-                    if (note !== keep) synthRef.current?.triggerRelease(note);
-                }
-
-                if (prev.size === 0) return prev;
-                if (keep && prev.size === 1 && prev.has(keep)) return prev;
-
-                const next = new Set<string>();
-                if (keep) next.add(keep);
-                return next;
-            });
+            // Страховка: если контекст не был готов на момент sync().
+            for (const note of Array.from(soundingRef.current)) {
+                synthRef.current?.triggerRelease(note);
+            }
+            soundingRef.current.clear();
         };
 
         const handleVisibilityChange = () => {
             if (document.hidden) silenceAll();
         };
 
-        // Тап по фону (вне клавиш) снимает залипшую ноту.
-        const handleBackgroundPointerDown = (event: PointerEvent) => {
-            if (!latchedRef.current) return;
+        /**
+         * Тап вне клавиш снимает залипшую ноту.
+         * Слушатель на window в bubble-фазе, поэтому React-обработчик клавиши
+         * успевает отработать первым — здесь мы просто проверяем, что тап не по клавише.
+         */
+        const handleDocumentPointerDown = (event: PointerEvent) => {
+            if (latchedRef.current === null) return;
 
             const target = event.target as HTMLElement | null;
             if (target?.closest("[data-piano-key]")) return;
 
-            releaseLatchRef.current();
+            lastTapRef.current = null;
+            latchedRef.current = null;
+            setLatchedNote(null);
+            sync();
         };
 
         window.addEventListener("pointerup", handlePointerUp);
         window.addEventListener("pointercancel", handlePointerUp);
-        window.addEventListener("pointerdown", handleBackgroundPointerDown);
+        window.addEventListener("pointerdown", handleDocumentPointerDown);
         window.addEventListener("blur", silenceAll);
         document.addEventListener("visibilitychange", handleVisibilityChange);
 
         return () => {
             window.removeEventListener("pointerup", handlePointerUp);
             window.removeEventListener("pointercancel", handlePointerUp);
-            window.removeEventListener("pointerdown", handleBackgroundPointerDown);
+            window.removeEventListener("pointerdown", handleDocumentPointerDown);
             window.removeEventListener("blur", silenceAll);
             document.removeEventListener("visibilitychange", handleVisibilityChange);
 
             heldPointersRef.current.clear();
+            soundingRef.current.clear();
+            latchedRef.current = null;
 
             const synth = synthRef.current;
             synthRef.current = null;
             synth?.releaseAll();
             synth?.dispose();
         };
-    }, []);
+    }, [sync]);
 
     const registerKey = (note: string) => (element: HTMLButtonElement | null) => {
         if (element) keyRefsRef.current.set(note, element);
@@ -360,7 +381,12 @@ const Piano = ({
             .join(" ");
 
     return (
-        <div className={styles.piano} ref={viewportRef} role="group" aria-label="Пианино">
+        <div
+            className={styles.piano}
+            ref={viewportRef}
+            role="group"
+            aria-label="Пианино"
+        >
             <div className={styles.inner}>
                 <div className={styles.whites}>
                     {whiteKeys.map((key) => {
@@ -374,6 +400,7 @@ const Piano = ({
                                 data-piano-key={key.note}
                                 className={keyClassName(key, isC)}
                                 aria-label={`Нота ${key.note}`}
+                                aria-pressed={pressedNotes.has(key.note) || latchedNote === key.note}
                                 onPointerDown={(event) => handlePointerDown(event, key.note)}
                                 onContextMenu={(event) => event.preventDefault()}
                             >
@@ -391,6 +418,7 @@ const Piano = ({
                         data-piano-key={key.note}
                         className={keyClassName(key, false)}
                         aria-label={`Нота ${key.note}`}
+                        aria-pressed={pressedNotes.has(key.note) || latchedNote === key.note}
                         style={{
                             top: `${key.topPct}%`,
                             height: `${key.heightPct}%`,

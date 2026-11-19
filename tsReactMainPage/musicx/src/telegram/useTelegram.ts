@@ -23,6 +23,14 @@ export const useTelegram = (): boolean => {
         const tg = getTelegramWebApp();
         if (!tg) return;
 
+        // В обычном браузере объект Telegram.WebApp тоже существует (скрипт
+        // telegram.org всегда его создаёт), но platform === "unknown" и initData
+        // пустой. Без этой проверки приложение считало себя Mini App и звало
+        // requestFullscreen, которого нет в старых версиях — отсюда ошибки
+        // в консоли "[Telegram.WebApp] Method requestFullscreen is not supported".
+        const inTelegram = tg.platform !== 'unknown' && Boolean(tg.initData);
+        if (!inTelegram) return;
+
         setIsMiniApp(true);
 
         tg.ready();
@@ -33,7 +41,7 @@ export const useTelegram = (): boolean => {
             try {
                 tg.requestFullscreen();
             } catch {
-                // Older clients, or the gesture wasn't accepted — expand() is enough.
+                // Старые клиенты или жест не принят — expand() выше достаточно.
             }
         };
 

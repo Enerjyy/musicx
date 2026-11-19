@@ -19,6 +19,10 @@ export interface TelegramWebApp {
     contentSafeAreaInset?: { top: number; bottom: number; left: number; right: number };
     colorScheme?: 'light' | 'dark';
     themeParams?: Record<string, string | undefined>;
+    /** "unknown" в обычном браузере — признак того, что это не Mini App. */
+    platform?: string;
+    /** Версия Bot API, "" вне Telegram. */
+    version?: string;
     initData?: string;
     initDataUnsafe?: { user?: { id: number; first_name?: string; last_name?: string } };
     onEvent: (event: TelegramEvent, handler: () => void) => void;
