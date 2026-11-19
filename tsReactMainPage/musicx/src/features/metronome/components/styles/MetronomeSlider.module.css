@@ -212,6 +212,220 @@
   text-shadow: 0 0 10px var(--retro-accent);
 }
 
+.retro-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  background: var(--retro-panel-bg);
+  border: 3px solid var(--retro-primary);
+  box-shadow: 
+    6px 6px 0 var(--retro-pixel-shadow),
+    inset 0 0 10px rgba(0, 255, 0, 0.1);
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.retro-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(0, 255, 0, 0.1), transparent);
+  animation: scanCard 3s infinite;
+}
+
+@keyframes scanCard {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+.retro-slider-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  margin-bottom: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.retro-slider {
+  margin-top: 15px;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 20px;
+  background: var(--retro-surface);
+  border: 3px solid var(--retro-primary);
+  border-radius: 0;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: inset 2px 2px 0 var(--retro-pixel-shadow);
+  image-rendering: pixelated;
+}
+
+.retro-slider:hover {
+  background: var(--retro-primary);
+  background: linear-gradient(90deg, var(--retro-primary), var(--retro-secondary));
+}
+
+.retro-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 0;
+  background: var(--retro-secondary);
+  border: 3px solid var(--retro-primary);
+  box-shadow: 
+    4px 4px 0 var(--retro-pixel-shadow),
+    inset 0 0 10px rgba(255, 255, 0, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  image-rendering: pixelated;
+}
+
+.retro-slider::-webkit-slider-thumb:hover {
+  background: var(--retro-accent);
+  transform: scale(1.1);
+  box-shadow: 
+    5px 5px 0 var(--retro-pixel-shadow),
+    inset 0 0 15px rgba(255, 0, 255, 0.5);
+}
+
+.retro-slider::-webkit-slider-thumb:active {
+  transform: scale(0.9);
+  box-shadow: 
+    2px 2px 0 var(--retro-pixel-shadow);
+}
+
+.retro-slider-value {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--retro-secondary);
+  text-shadow: 
+    0 0 10px var(--retro-secondary),
+    2px 2px 0 var(--retro-pixel-shadow);
+  margin: 15px 0;
+  font-family: var(--retro-font);
+  image-rendering: pixelated;
+  padding: 10px 20px;
+  background: var(--retro-surface);
+  border: 3px solid var(--retro-primary);
+  border-radius: 4px;
+  box-shadow: 3px 3px 0 var(--retro-pixel-shadow);
+  min-width: 120px;
+  text-align: center;
+}
+
+.retro-beats-container {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin: 25px 0;
+  position: relative;
+  z-index: 1;
+}
+
+.retro-beat-dot {
+  width: 24px;
+  height: 24px;
+  background: var(--retro-surface);
+  border: 3px solid var(--retro-primary);
+  border-radius: 0;
+  box-shadow: 3px 3px 0 var(--retro-pixel-shadow);
+  transition: all 0.3s ease;
+  position: relative;
+  image-rendering: pixelated;
+}
+
+.retro-beat-dot.active {
+  background: var(--retro-secondary);
+  border-color: var(--retro-accent);
+  transform: scale(1.2);
+  box-shadow: 
+    5px 5px 0 var(--retro-pixel-shadow),
+    0 0 20px var(--retro-secondary),
+    inset 0 0 10px rgba(255, 255, 0, 0.5);
+}
+
+.retro-beat-dot::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 4px;
+  height: 4px;
+  background: var(--retro-accent);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.retro-beat-dot.active::before {
+  opacity: 1;
+  animation: blink 0.5s infinite;
+}
+
+.retro-label {
+  font-size: 1rem;
+  color: var(--retro-text);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin: 15px 0;
+  opacity: 0.8;
+  font-weight: bold;
+  font-family: var(--retro-font);
+  position: relative;
+  z-index: 1;
+}
+
+.retro-input-wrapper {
+  display: flex;
+  align-items: center;
+  background: var(--retro-surface);
+  border: 3px solid var(--retro-primary);
+  border-radius: 0;
+  padding: 8px 15px;
+  box-shadow: 
+    inset 4px 4px 0 var(--retro-pixel-shadow),
+    inset -4px -4px 0 var(--retro-surface);
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.retro-input-wrapper:hover {
+  border-color: var(--retro-secondary);
+  box-shadow: 
+    inset 4px 4px 0 var(--retro-pixel-shadow),
+    inset -4px -4px 0 var(--retro-secondary);
+}
+
+.retro-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--retro-secondary);
+  font-size: 1.2rem;
+  font-family: var(--retro-font);
+  width: 100%;
+  text-align: center;
+  font-weight: bold;
+  image-rendering: pixelated;
+}
+
+.retro-input:focus {
+  color: var(--retro-accent);
+  text-shadow: 0 0 10px var(--retro-accent);
+}
+
 .retro-controls-row {
   display: flex;
   justify-content: center;
@@ -293,6 +507,46 @@
   50% { opacity: 0.3; }
 }
 
+/* Retro button styling */
+.retro-button {
+  width: 80px;
+  height: 80px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border: 3px solid var(--retro-primary);
+  border-radius: 8px;
+  box-shadow: 3px 3px 0 var(--retro-pixel-shadow);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  image-rendering: pixelated;
+  z-index: 2;
+}
+
+.retro-button:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 var(--retro-pixel-shadow);
+  border-color: var(--retro-secondary);
+}
+
+.retro-button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--retro-pixel-shadow);
+}
+
+.retro-button-label {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  color: var(--retro-secondary);
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  text-shadow: 0 0 5px var(--retro-secondary);
+  font-family: var(--retro-font);
+  image-rendering: pixelated;
+}
+
 /* Responsive design for retro components */
 @media (max-width: 768px) {
   .retro-controls-row {
@@ -323,5 +577,14 @@
   .retro-slider::-webkit-slider-thumb {
     width: 30px;
     height: 30px;
+  }
+  
+  .retro-button {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .retro-button-label {
+    font-size: 0.8rem;
   }
 }

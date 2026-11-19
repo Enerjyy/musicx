@@ -44,6 +44,7 @@ const CheckerHZ = ({ pitch, note, isActive, toggleMic }: CheckerHZProps) => {
                         <path d="M12 17v3.5" />
                         <path d="M8.5 20.5h7" />
                     </svg>
+                    <span className={styles['retro-mic-label']}>{isActive ? 'ON' : 'OFF'}</span>
                 </button>
 
                 <div className={styles['retro-readout']}>
