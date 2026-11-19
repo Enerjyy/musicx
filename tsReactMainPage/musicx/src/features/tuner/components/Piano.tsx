@@ -6,6 +6,7 @@ import styles from "./styles/Piano.module.css";
 
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"] as const;
 const BLACK_SIZE_RATIO = 0.62;
+const DOUBLE_TAP_MS = 320;
 
 type KeyKind = "white" | "black";
 
@@ -87,6 +88,13 @@ const Piano = ({
     const [pressedNotes, setPressedNotes] = useState<ReadonlySet<string>>(() => new Set());
     const heldPointersRef = useRef<Map<number, string>>(new Map());
     const synthRef = useRef<Tone.PolySynth | null>(null);
+
+    // «Залипшая» нота: включается двойным тапом, снимается любым касанием
+    // вне её. Держится отдельно от pointer-состояния, поэтому pointerup её
+    // не отпускает.
+    const [latchedNote, setLatchedNote] = useState<string | null>(null);
+    const latchedRef = useRef<string | null>(null);
+    const lastTapRef = useRef<{ note: string; time: number }>({ note: "", time: 0 });
 
     const viewportRef = useRef<HTMLDivElement | null>(null);
     const keyRefsRef = useRef<Map<string, HTMLButtonElement>>(new Map());
@@ -177,11 +185,64 @@ const Piano = ({
         });
     };
 
+    const releaseLatch = () => {
+        const note = latchedRef.current;
+        if (!note) return;
+
+        latchedRef.current = null;
+        setLatchedNote(null);
+        synthRef.current?.triggerRelease(note);
+
+        setPressedNotes((prev) => {
+            if (!prev.has(note)) return prev;
+            const next = new Set(prev);
+            next.delete(note);
+            return next;
+        });
+    };
+
+    // Стабильная ссылка, чтобы useEffect с [] не захватывал устаревшее замыкание.
+    const releaseLatchRef = useRef(releaseLatch);
+    releaseLatchRef.current = releaseLatch;
+
     const handlePointerDown = (
         event: ReactPointerEvent<HTMLButtonElement>,
         noteToPlay: string,
     ) => {
         if (event.pointerType === "mouse" && event.button !== 0) return;
+
+        // Любое касание вне «залипшей» клавиши снимает её. Это проверяется
+        // до двойного тапа, чтобы тап по другой клавише сначала отпустил
+        // предыдущую, а потом уже играл новую.
+        const latched = latchedRef.current;
+        if (latched && latched !== noteToPlay) {
+            releaseLatch();
+        }
+
+        const now = Date.now();
+        const last = lastTapRef.current;
+        const isDoubleTap =
+            last.note === noteToPlay && now - last.time <= DOUBLE_TAP_MS && latched !== noteToPlay;
+
+        lastTapRef.current = { note: noteToPlay, time: isDoubleTap ? 0 : now };
+
+        if (isDoubleTap) {
+            // Залипаем: играем и держим до внешнего касания.
+            latchedRef.current = noteToPlay;
+            setLatchedNote(noteToPlay);
+
+            setPressedNotes((prev) => {
+                if (prev.has(noteToPlay)) return prev;
+                const next = new Set(prev);
+                next.add(noteToPlay);
+                return next;
+            });
+
+            // Клавиша уже могла быть зажата первым тапом — тогда второй
+            // simply пере-атакует, что даёт явный щелчок подтверждения.
+            attack(noteToPlay);
+            return;
+        }
 
         // На тач-устройствах не мешаем вертикальной прокрутке клавиатуры
         if (event.pointerType === "mouse") event.preventDefault();
@@ -216,28 +277,59 @@ const Piano = ({
 
             heldPointersRef.current.delete(event.pointerId);
 
+            // Залипшая нота живёт отдельно от pointer-состояния: обычный
+            // pointerup её не отпускает.
+            if (latchedRef.current === noteToRelease) return;
+
             const stillHeld = Array.from(heldPointersRef.current.values()).includes(noteToRelease);
             if (!stillHeld) releaseNote(noteToRelease);
         };
 
         const silenceAll = () => {
             heldPointersRef.current.clear();
-            synthRef.current?.releaseAll();
-            setPressedNotes((prev) => (prev.size === 0 ? prev : new Set()));
+
+            // Снимаем всё, кроме залипшей ноты — она держится до касания
+            // по другой клавише или по фону.
+            const keep = latchedRef.current;
+
+            setPressedNotes((prev) => {
+                for (const note of prev) {
+                    if (note !== keep) synthRef.current?.triggerRelease(note);
+                }
+
+                if (prev.size === 0) return prev;
+                if (keep && prev.size === 1 && prev.has(keep)) return prev;
+
+                const next = new Set<string>();
+                if (keep) next.add(keep);
+                return next;
+            });
         };
 
         const handleVisibilityChange = () => {
             if (document.hidden) silenceAll();
         };
 
+        // Тап по фону (вне клавиш) снимает залипшую ноту.
+        const handleBackgroundPointerDown = (event: PointerEvent) => {
+            if (!latchedRef.current) return;
+
+            const target = event.target as HTMLElement | null;
+            if (target?.closest("[data-piano-key]")) return;
+
+            releaseLatchRef.current();
+        };
+
         window.addEventListener("pointerup", handlePointerUp);
         window.addEventListener("pointercancel", handlePointerUp);
+        window.addEventListener("pointerdown", handleBackgroundPointerDown);
         window.addEventListener("blur", silenceAll);
         document.addEventListener("visibilitychange", handleVisibilityChange);
 
         return () => {
             window.removeEventListener("pointerup", handlePointerUp);
             window.removeEventListener("pointercancel", handlePointerUp);
+            window.removeEventListener("pointerdown", handleBackgroundPointerDown);
             window.removeEventListener("blur", silenceAll);
             document.removeEventListener("visibilitychange", handleVisibilityChange);
 
@@ -261,6 +353,7 @@ const Piano = ({
             key.kind === "white" ? styles.white : styles.black,
             isC ? styles.isC : "",
             pressedNotes.has(key.note) ? styles.isPressed : "",
+            latchedNote === key.note ? styles.isLatched : "",
             detectedNote === key.note ? styles.isDetected : "",
         ]
             .filter(Boolean)
@@ -278,6 +371,7 @@ const Piano = ({
                                 key={key.note}
                                 ref={registerKey(key.note)}
                                 type="button"
+                                data-piano-key={key.note}
                                 className={keyClassName(key, isC)}
                                 aria-label={`Нота ${key.note}`}
                                 onPointerDown={(event) => handlePointerDown(event, key.note)}
@@ -294,6 +388,7 @@ const Piano = ({
                         key={key.note}
                         ref={registerKey(key.note)}
                         type="button"
+                        data-piano-key={key.note}
                         className={keyClassName(key, false)}
                         aria-label={`Нота ${key.note}`}
                         style={{
