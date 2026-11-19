@@ -3,6 +3,7 @@ import cat2 from '../images/cat2.png';
 import cat3 from '../images/cat3.png';
 import {useEffect, useState, useRef} from "react";
 import * as Tone from "tone";
+import {unlockAudio} from "../../../audio/unlockAudio";
 import ticksound from '../mp3/metronome-tick.mp3';
 import forceticksound from '../mp3/G-major-metronome-tick.mp3';
 
@@ -85,8 +86,8 @@ export const useCatSlider = () => {
     }, [right, isRunning, BPMValue, currentBeat]);
 
     const toggleSlider = async () => {
-        if (!isRunning && Tone.context.state !== 'running') {
-            await Tone.start();
+        if (!isRunning) {
+            await unlockAudio();
         }
         setIsRunning(!isRunning);
     }

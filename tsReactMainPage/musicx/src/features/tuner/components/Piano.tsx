@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import * as Tone from "tone";
+import { unlockAudio } from "../../../audio/unlockAudio";
 import styles from "./styles/Piano.module.css";
 
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"] as const;
@@ -151,15 +152,10 @@ const Piano = ({
         return synthRef.current;
     };
 
-    // Резолвится, когда AudioContext разморожен. Первый вызов Tone.start()
-    // должен произойти синхронно внутри user gesture, иначе браузер его
-    // отклонит — поэтому запускаем его прямо в обработчике, а не после await.
-    const ensureAudio = () => {
-        if (Tone.getContext().state === "running") return Promise.resolve();
-        return Tone.start().catch((error) => {
-            console.error("Не удалось запустить аудио:", error);
-        });
-    };
+    // Резолвится, когда AudioContext разморожен. Первый вызов должен произойти
+    // синхронно внутри user gesture, иначе браузер отклонит его — поэтому
+    // запускаем прямо в обработчике, а не после await.
+    const ensureAudio = () => unlockAudio();
 
     const attack = (noteToPlay: string) => {
         const synth = getSynth();
