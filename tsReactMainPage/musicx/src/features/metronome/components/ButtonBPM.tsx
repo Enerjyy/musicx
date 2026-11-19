@@ -1,4 +1,5 @@
 import type {JSX} from "react";
+import styles from '../styles/MetronomeSlider.module.css';
 
 interface MetronomeButtonProps {
     currentImage: string;
@@ -6,11 +7,15 @@ interface MetronomeButtonProps {
 }
 
 const MetronomeButton = ({ currentImage, toggleSlider }: MetronomeButtonProps): JSX.Element => {
-    return (<div>
-
-
-        <button onClick={toggleSlider}> <img src={currentImage}/></button>
-    </div>)
+    return (
+        <div className={styles['retro-container']}>            
+            <button 
+                onClick={toggleSlider} 
+                className={styles['retro-button']}
+                style={{ backgroundImage: `url(${currentImage})` }}
+            />
+        </div>
+    )
 }
 
 export default MetronomeButton;

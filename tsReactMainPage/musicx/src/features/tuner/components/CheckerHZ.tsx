@@ -13,8 +13,8 @@ const KEYBOARD_OCTAVES = 4;
 
 const CheckerHZ = ({ pitch, note, isActive, toggleMic }: CheckerHZProps) => {
     return (
-        <main className={styles.checker}>
-            <section className={styles.keyboard}>
+        <main className={styles['retro-checker']}>
+            <section className={styles['retro-keyboard']}>
                 <Piano
                     startOctave={KEYBOARD_START_OCTAVE}
                     octaves={KEYBOARD_OCTAVES}
@@ -22,10 +22,10 @@ const CheckerHZ = ({ pitch, note, isActive, toggleMic }: CheckerHZProps) => {
                 />
             </section>
 
-            <aside className={styles.side}>
+            <aside className={styles['retro-side']}>
                 <button
                     type="button"
-                    className={`${styles.micButton} ${isActive ? styles.isOn : styles.isOff}`}
+                    className={`${styles['retro-mic-button']} ${isActive ? styles['isOn'] : styles['isOff']}`}
                     aria-label={isActive ? "Выключить микрофон" : "Включить микрофон"}
                     aria-pressed={isActive}
                     onClick={toggleMic}
@@ -46,15 +46,20 @@ const CheckerHZ = ({ pitch, note, isActive, toggleMic }: CheckerHZProps) => {
                     </svg>
                 </button>
 
-                <div className={styles.readout}>
-                    {note !== null && <p className={styles.note}>{note}</p>}
+                <div className={styles['retro-readout']}>
+                    {note !== null && <p className={styles['retro-note']}>{note}</p>}
 
                     {pitch !== null && (
-                        <p className={styles.hz}>
+                        <p className={styles['retro-hz']}>
                             {Math.round(pitch)}
                             <span>Hz</span>
                         </p>
                     )}
+                </div>
+                
+                <div className={styles['retro-tuning-display']}>
+                    <div className={styles['retro-tuning-value']}>A = 440Hz</div>
+                    <div className={styles['retro-tuning-status']}>{isActive ? 'MIC ACTIVE' : 'MIC INACTIVE'}</div>
                 </div>
             </aside>
         </main>

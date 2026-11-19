@@ -1,210 +1,354 @@
-.checker {
+.retro-checker {
     height: 100%;
     width: 100%;
     flex: 1 1 auto;
     min-width: 0;
-    /* Страховка, если родитель без фиксированной высоты (например, контент
-       лежит в потоке под фиксированным нижним навбаром). Если контейнер уже
-       ограничен, max-height просто не срабатывает. */
-    max-height: calc(100vh - var(--tuner-bottom-inset, 0px));
-    max-height: calc(100dvh - var(--tuner-bottom-inset, 0px));
+    max-height: calc(100vh - var(--navbar-height, 60px));
+    max-height: calc(100dvh - var(--navbar-height, 60px));
     min-height: 0;
     display: grid;
     grid-template-columns: clamp(220px, 24vw, 360px) minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
     overflow: hidden;
-    background: #090b0e;
-    color: #ece9e2;
-    font-family: "Segoe UI", Inter, system-ui, -apple-system, sans-serif;
-    -webkit-font-smoothing: antialiased;
+    background: var(--retro-bg);
+    color: var(--retro-text);
+    font-family: var(--retro-font);
+    border: 2px solid var(--retro-primary);
+    box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+    position: relative;
 }
 
-.keyboard {
+.retro-checker::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--retro-primary), transparent);
+    animation: scanLine 3s linear infinite;
+    z-index: 1;
+}
+
+@keyframes scanLine {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(100vh); }
+}
+
+.retro-keyboard {
     min-width: 0;
     min-height: 0;
+    position: relative;
+    z-index: 2;
 }
 
-.side {
+.retro-side {
     position: relative;
     min-width: 0;
     min-height: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding:
-            max(16px, env(safe-area-inset-top))
-            max(16px, env(safe-area-inset-right))
-            max(16px, env(safe-area-inset-bottom))
-            16px;
-    background:
-            radial-gradient(900px 620px at 10% -10%, rgba(73, 136, 130, 0.16), transparent 60%),
-            radial-gradient(820px 620px at 96% 112%, rgba(117, 87, 168, 0.14), transparent 60%),
-            #090b0e;
+    padding: 20px;
+    background: var(--retro-panel-bg);
+    border-left: 3px solid var(--retro-primary);
+    box-shadow: inset -4px 0 8px rgba(0, 20, 0, 0.5);
+    position: relative;
+    overflow: hidden;
 }
 
-.side::before {
-    content: "";
+.retro-side::before {
+    content: '';
     position: absolute;
     inset: 0;
     background-image:
-            linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
-    background-size: 64px 64px;
-    mask-image: radial-gradient(ellipse at 50% 40%, black 25%, transparent 78%);
+        linear-gradient(rgba(0, 255, 0, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 255, 0, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(ellipse at 50% 40%, black 30%, transparent 80%);
     pointer-events: none;
+    z-index: 1;
 }
 
-.micButton {
+.retro-mic-button {
     position: absolute;
-    top: max(16px, env(safe-area-inset-top));
-    right: max(16px, env(safe-area-inset-right));
-    z-index: 2;
+    top: 20px;
+    right: 20px;
+    z-index: 10;
     display: grid;
     place-items: center;
-    width: 54px;
-    height: 54px;
+    width: 64px;
+    height: 64px;
     padding: 0;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.04);
+    border: 3px solid var(--retro-primary);
+    border-radius: 0;
+    background: var(--retro-surface);
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
-    transition:
-            color 0.25s ease,
-            background 0.25s ease,
-            border-color 0.25s ease,
-            box-shadow 0.25s ease,
-            transform 0.08s ease;
-}
-
-.micButton:active {
-    transform: scale(0.94);
-}
-
-.micButton:focus-visible {
-    outline: 2px solid rgba(124, 232, 213, 0.7);
-    outline-offset: 3px;
-}
-
-.micButton svg {
-    width: 24px;
-    height: 24px;
-}
-
-.isOff {
-    color: #ff6b6b;
-}
-
-.isOn {
-    color: #5be49b;
-    border-color: rgba(91, 228, 155, 0.35);
-    background: rgba(91, 228, 155, 0.08);
-    box-shadow: 0 0 24px rgba(91, 228, 155, 0.18);
-}
-
-.readout {
+    transition: all 0.2s ease;
+    box-shadow: 3px 3px 0 var(--retro-pixel-shadow);
+    image-rendering: pixelated;
     position: relative;
-    z-index: 1;
+}
+
+.retro-mic-button::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border: 2px solid var(--retro-secondary);
+    border-radius: 0;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    animation: buttonPulse 2s infinite;
+}
+
+.retro-mic-button:hover::before {
+    opacity: 1;
+}
+
+@keyframes buttonPulse {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 0.5; }
+}
+
+.retro-mic-button:active {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 var(--retro-pixel-shadow);
+}
+
+.retro-mic-button:focus-visible {
+    outline: 3px solid var(--retro-secondary);
+    outline-offset: 2px;
+    box-shadow: 0 0 20px var(--retro-secondary);
+}
+
+.retro-mic-button svg {
+    width: 28px;
+    height: 28px;
+    fill: var(--retro-primary);
+    transition: all 0.2s ease;
+}
+
+.retro-mic-button:hover svg {
+    fill: var(--retro-secondary);
+    transform: scale(1.1);
+}
+
+.retro-mic-button.isOff {
+    border-color: #ff0000;
+    box-shadow: 3px 3px 0 #330000;
+}
+
+.retro-mic-button.isOff svg {
+    fill: #ff0000;
+}
+
+.retro-mic-button.isOff:hover svg {
+    fill: #ff3333;
+}
+
+.retro-mic-button.isOn {
+    border-color: var(--retro-secondary);
+    background: rgba(0, 255, 0, 0.1);
+    box-shadow: 
+        0 0 20px var(--retro-secondary),
+        inset 0 0 10px rgba(0, 255, 0, 0.2);
+}
+
+.retro-mic-button.isOn svg {
+    fill: var(--retro-secondary);
+    filter: drop-shadow(0 0 10px var(--retro-secondary));
+}
+
+.retro-readout {
+    position: relative;
+    z-index: 3;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 15px;
     min-height: 1.2em;
     text-align: center;
     pointer-events: none;
     user-select: none;
+    padding: 30px;
+    background: linear-gradient(180deg, transparent, rgba(0, 20, 0, 0.3));
+    border-top: 2px solid var(--retro-primary);
 }
 
-.note {
+.retro-note {
     margin: 0;
     font-size: clamp(56px, 13vw, 210px);
-    font-weight: 650;
+    font-weight: 700;
     line-height: 0.86;
     letter-spacing: -0.06em;
-    color: rgba(236, 233, 226, 0.44);
+    color: var(--retro-secondary);
     font-variant-numeric: tabular-nums;
+    text-shadow: 
+        0 0 20px var(--retro-secondary),
+        2px 2px 0 var(--retro-pixel-shadow);
+    position: relative;
 }
 
-.hz {
+.retro-note::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--retro-secondary);
+    opacity: 0.3;
+    animation: noteGlow 2s ease-in-out infinite;
+}
+
+@keyframes noteGlow {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.8; }
+}
+
+.retro-hz {
     margin: 0;
     display: flex;
     align-items: baseline;
-    gap: 7px;
+    gap: 10px;
     font-size: clamp(18px, 2.2vw, 30px);
-    font-weight: 300;
+    font-weight: 400;
     letter-spacing: -0.01em;
-    color: rgba(236, 233, 226, 0.3);
+    color: var(--retro-text);
     font-variant-numeric: tabular-nums;
+    opacity: 0.7;
 }
 
-.hz span {
-    font-size: 0.55em;
+.retro-hz span {
+    font-size: 0.6em;
     font-weight: 600;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: rgba(236, 233, 226, 0.22);
+    color: var(--retro-primary);
+    text-shadow: 0 0 10px var(--retro-primary);
 }
 
+/* Retro tuning display */
+.retro-tuning-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 20px;
+    background: var(--retro-surface);
+    border: 2px solid var(--retro-primary);
+    border-radius: 0;
+    margin: 20px;
+    box-shadow: 3px 3px 0 var(--retro-pixel-shadow);
+    position: relative;
+    z-index: 2;
+}
+
+.retro-tuning-display::before {
+    content: 'TUNING';
+    position: absolute;
+    top: -12px;
+    left: 20px;
+    background: var(--retro-bg);
+    padding: 0 10px;
+    color: var(--retro-secondary);
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.retro-tuning-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--retro-text);
+    font-family: var(--retro-font);
+}
+
+.retro-tuning-status {
+    font-size: 1rem;
+    color: var(--retro-primary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Responsive design */
 @media (max-width: 760px) {
-    .checker {
+    .retro-checker {
         grid-template-columns: 58% minmax(0, 1fr);
     }
-
-    .side {
-        padding:
-                max(12px, env(safe-area-inset-top))
-                max(12px, env(safe-area-inset-right))
-                max(12px, env(safe-area-inset-bottom))
-                12px;
+    
+    .retro-side {
+        padding: 15px;
     }
-
-    .micButton {
-        top: max(12px, env(safe-area-inset-top));
-        right: max(12px, env(safe-area-inset-right));
+    
+    .retro-mic-button {
+        top: 15px;
+        right: 15px;
         width: 50px;
         height: 50px;
     }
-
-    .micButton svg {
+    
+    .retro-mic-button svg {
         width: 22px;
         height: 22px;
     }
-
-    .note {
+    
+    .retro-note {
         font-size: clamp(48px, 15vw, 78px);
     }
-
-    .hz {
+    
+    .retro-hz {
         font-size: 18px;
+    }
+    
+    .retro-tuning-display {
+        margin: 15px;
+        padding: 15px;
+    }
+    
+    .retro-tuning-value {
+        font-size: 1.5rem;
     }
 }
 
 @media (max-width: 380px) {
-    .checker {
+    .retro-checker {
         grid-template-columns: 60% minmax(0, 1fr);
     }
-
-    .note {
+    
+    .retro-note {
         font-size: 46px;
+    }
+    
+    .retro-mic-button {
+        width: 44px;
+        height: 44px;
+    }
+    
+    .retro-mic-button svg {
+        width: 20px;
+        height: 20px;
     }
 }
 
 @media (max-height: 500px) {
-    .micButton {
+    .retro-mic-button {
         width: 44px;
         height: 44px;
     }
-
-    .micButton svg {
+    
+    .retro-mic-button svg {
         width: 20px;
         height: 20px;
     }
-
-    .note {
+    
+    .retro-note {
         font-size: clamp(38px, 9vw, 58px);
     }
-
-    .hz {
+    
+    .retro-hz {
         font-size: 16px;
     }
 }

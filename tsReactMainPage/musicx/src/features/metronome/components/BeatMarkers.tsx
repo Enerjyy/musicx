@@ -6,19 +6,19 @@ interface beatMarkerProps {
     currentBeat: number;
 }
 
-const beatMarkers = ({totalBeats, currentBeat}: beatMarkerProps): JSX.Element => {
+const BeatMarkers = ({totalBeats, currentBeat}: beatMarkerProps): JSX.Element => {
     const beatsArray = Array.from({ length: totalBeats }, (_, index) => index);
 
     return (
-        <div className={styles.beatsContainer}>
+        <div className={styles['retro-beats-container']}>
             {beatsArray.map((index) => (
                 <div
                     key={index}
-                    className={`${styles.beatDot} ${currentBeat === index ? styles.active : ''}`}
+                    className={`${styles['retro-beat-dot']} ${currentBeat === index ? styles.active : ''}`}
                 />
             ))}
         </div>
     );
 }
 
-export default beatMarkers;
+export default BeatMarkers;
