@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import * as Tone from "tone";
+import styles from "./styles/Piano.module.css";
 
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"] as const;
 const BLACK_SIZE_RATIO = 0.62;
@@ -40,6 +41,7 @@ const buildKeyboard = (startOctave: number, octaveCount: number): Keyboard => {
         }
     }
 
+    // Закрывающая нота C следующей октавы
     ascendingKeys.push({
         note: `C${startOctave + octaveCount}`,
         kind: "white",
@@ -50,6 +52,7 @@ const buildKeyboard = (startOctave: number, octaveCount: number): Keyboard => {
     const rowHeightPct = 100 / whiteCount;
     const blackHeightPct = rowHeightPct * BLACK_SIZE_RATIO;
 
+    // Сверху вниз — от высоких нот к низким
     const whiteKeys = ascendingKeys
         .filter((key) => key.kind === "white")
         .reverse();
@@ -102,10 +105,12 @@ const Piano = ({
         viewport.scrollTo({ top: Math.max(0, top), behavior });
     };
 
+    // При открытии показываем середину — C4
     useLayoutEffect(() => {
         centerKey("C4", "auto");
     }, []);
 
+    // Услышали ноту — плавно подводим клавиатуру к её клавише
     useEffect(() => {
         detectedNoteRef.current = detectedNote;
         if (!detectedNote) return;
@@ -118,6 +123,7 @@ const Piano = ({
         centerKey(detectedNote, behavior);
     }, [detectedNote]);
 
+    // При изменении размера окна/повороте экрана возвращаем текущую ноту в центр
     useEffect(() => {
         const handleResize = () => centerKey(detectedNoteRef.current ?? "C4", "auto");
 
@@ -169,6 +175,7 @@ const Piano = ({
     ) => {
         if (event.pointerType === "mouse" && event.button !== 0) return;
 
+        // На тач-устройствах не мешаем вертикальной прокрутке клавиатуры
         if (event.pointerType === "mouse") event.preventDefault();
 
         heldPointersRef.current.set(event.pointerId, noteToPlay);
@@ -242,19 +249,19 @@ const Piano = ({
 
     const keyClassName = (key: PianoKey, isC: boolean) =>
         [
-            "piano-key",
-            `piano-key--${key.kind}`,
-            isC ? "is-c" : "",
-            pressedNotes.has(key.note) ? "is-pressed" : "",
-            detectedNote === key.note ? "is-detected" : "",
+            styles.key,
+            key.kind === "white" ? styles.white : styles.black,
+            isC ? styles.isC : "",
+            pressedNotes.has(key.note) ? styles.isPressed : "",
+            detectedNote === key.note ? styles.isDetected : "",
         ]
             .filter(Boolean)
             .join(" ");
 
     return (
-        <div className="piano" ref={viewportRef} role="group" aria-label="Пианино">
-            <div className="piano__inner">
-                <div className="piano__whites">
+        <div className={styles.piano} ref={viewportRef} role="group" aria-label="Пианино">
+            <div className={styles.inner}>
+                <div className={styles.whites}>
                     {whiteKeys.map((key) => {
                         const isC = key.note.startsWith("C") && key.note[1] !== "#";
 
@@ -268,7 +275,7 @@ const Piano = ({
                                 onPointerDown={(event) => handlePointerDown(event, key.note)}
                                 onContextMenu={(event) => event.preventDefault()}
                             >
-                                <span className="piano-key__label">{key.note}</span>
+                                <span className={styles.label}>{key.note}</span>
                             </button>
                         );
                     })}
@@ -288,7 +295,7 @@ const Piano = ({
                         onPointerDown={(event) => handlePointerDown(event, key.note)}
                         onContextMenu={(event) => event.preventDefault()}
                     >
-                        <span className="piano-key__label">{key.note}</span>
+                        <span className={styles.label}>{key.note}</span>
                     </button>
                 ))}
             </div>
