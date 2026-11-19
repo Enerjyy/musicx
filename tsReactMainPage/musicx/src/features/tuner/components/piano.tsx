@@ -1,0 +1,299 @@
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
+import * as Tone from "tone";
+
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"] as const;
+const BLACK_SIZE_RATIO = 0.62;
+
+type KeyKind = "white" | "black";
+
+type PianoKey = {
+    note: string;
+    kind: KeyKind;
+    whiteIndex: number;
+};
+
+type BlackPianoKey = PianoKey & {
+    topPct: number;
+    heightPct: number;
+};
+
+type Keyboard = {
+    whiteKeys: PianoKey[];
+    blackKeys: BlackPianoKey[];
+};
+
+const buildKeyboard = (startOctave: number, octaveCount: number): Keyboard => {
+    const ascendingKeys: PianoKey[] = [];
+    let whiteIndex = 0;
+
+    for (let octave = startOctave; octave < startOctave + octaveCount; octave += 1) {
+        for (const name of NOTE_NAMES) {
+            const note = `${name}${octave}`;
+
+            if (name.includes("#")) {
+                ascendingKeys.push({ note, kind: "black", whiteIndex: whiteIndex - 1 });
+            } else {
+                ascendingKeys.push({ note, kind: "white", whiteIndex });
+                whiteIndex += 1;
+            }
+        }
+    }
+
+    ascendingKeys.push({
+        note: `C${startOctave + octaveCount}`,
+        kind: "white",
+        whiteIndex,
+    });
+
+    const whiteCount = whiteIndex + 1;
+    const rowHeightPct = 100 / whiteCount;
+    const blackHeightPct = rowHeightPct * BLACK_SIZE_RATIO;
+
+    const whiteKeys = ascendingKeys
+        .filter((key) => key.kind === "white")
+        .reverse();
+
+    const blackKeys = ascendingKeys
+        .filter((key) => key.kind === "black")
+        .map((key) => ({
+            ...key,
+            topPct:
+                100 -
+                (key.whiteIndex + 1) * rowHeightPct -
+                blackHeightPct / 2,
+            heightPct: blackHeightPct,
+        }))
+        .sort((a, b) => a.topPct - b.topPct);
+
+    return { whiteKeys, blackKeys };
+};
+
+interface PianoProps {
+    startOctave?: number;
+    octaves?: number;
+    detectedNote?: string | null;
+}
+
+const Piano = ({
+                   startOctave = 1,
+                   octaves = 6,
+                   detectedNote = null,
+               }: PianoProps) => {
+    const [pressedNotes, setPressedNotes] = useState<ReadonlySet<string>>(() => new Set());
+    const heldPointersRef = useRef<Map<number, string>>(new Map());
+    const synthRef = useRef<Tone.PolySynth | null>(null);
+
+    const viewportRef = useRef<HTMLDivElement | null>(null);
+    const keyRefsRef = useRef<Map<string, HTMLButtonElement>>(new Map());
+    const detectedNoteRef = useRef<string | null>(detectedNote);
+
+    const { whiteKeys, blackKeys } = useMemo(
+        () => buildKeyboard(startOctave, octaves),
+        [startOctave, octaves],
+    );
+
+    const centerKey = (targetNote: string, behavior: ScrollBehavior) => {
+        const viewport = viewportRef.current;
+        const key = keyRefsRef.current.get(targetNote);
+        if (!viewport || !key) return;
+
+        const top = key.offsetTop + key.offsetHeight / 2 - viewport.clientHeight / 2;
+        viewport.scrollTo({ top: Math.max(0, top), behavior });
+    };
+
+    useLayoutEffect(() => {
+        centerKey("C4", "auto");
+    }, []);
+
+    useEffect(() => {
+        detectedNoteRef.current = detectedNote;
+        if (!detectedNote) return;
+
+        const behavior: ScrollBehavior = window.matchMedia("(prefers-reduced-motion: reduce)")
+            .matches
+            ? "auto"
+            : "smooth";
+
+        centerKey(detectedNote, behavior);
+    }, [detectedNote]);
+
+    useEffect(() => {
+        const handleResize = () => centerKey(detectedNoteRef.current ?? "C4", "auto");
+
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
+    const getSynth = () => {
+        if (!synthRef.current) {
+            const synth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: "triangle" },
+                envelope: {
+                    attack: 0.006,
+                    decay: 0.18,
+                    sustain: 0.45,
+                    release: 1.1,
+                },
+            });
+
+            synth.volume.value = -9;
+            synth.toDestination();
+            synthRef.current = synth;
+        }
+
+        return synthRef.current;
+    };
+
+    const attack = async (noteToPlay: string) => {
+        const synth = getSynth();
+
+        try {
+            if (Tone.getContext().state !== "running") {
+                await Tone.start();
+            }
+        } catch (error) {
+            console.error("Не удалось запустить аудио:", error);
+            return;
+        }
+
+        const stillHeld = Array.from(heldPointersRef.current.values()).includes(noteToPlay);
+        if (!stillHeld) return;
+
+        synth.triggerAttack(noteToPlay);
+    };
+
+    const handlePointerDown = (
+        event: ReactPointerEvent<HTMLButtonElement>,
+        noteToPlay: string,
+    ) => {
+        if (event.pointerType === "mouse" && event.button !== 0) return;
+
+        if (event.pointerType === "mouse") event.preventDefault();
+
+        heldPointersRef.current.set(event.pointerId, noteToPlay);
+
+        setPressedNotes((prev) => {
+            if (prev.has(noteToPlay)) return prev;
+            const next = new Set(prev);
+            next.add(noteToPlay);
+            return next;
+        });
+
+        void attack(noteToPlay);
+    };
+
+    useEffect(() => {
+        const releaseNote = (noteToRelease: string) => {
+            synthRef.current?.triggerRelease(noteToRelease);
+
+            setPressedNotes((prev) => {
+                if (!prev.has(noteToRelease)) return prev;
+                const next = new Set(prev);
+                next.delete(noteToRelease);
+                return next;
+            });
+        };
+
+        const handlePointerUp = (event: PointerEvent) => {
+            const noteToRelease = heldPointersRef.current.get(event.pointerId);
+            if (!noteToRelease) return;
+
+            heldPointersRef.current.delete(event.pointerId);
+
+            const stillHeld = Array.from(heldPointersRef.current.values()).includes(noteToRelease);
+            if (!stillHeld) releaseNote(noteToRelease);
+        };
+
+        const silenceAll = () => {
+            heldPointersRef.current.clear();
+            synthRef.current?.releaseAll();
+            setPressedNotes((prev) => (prev.size === 0 ? prev : new Set()));
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.hidden) silenceAll();
+        };
+
+        window.addEventListener("pointerup", handlePointerUp);
+        window.addEventListener("pointercancel", handlePointerUp);
+        window.addEventListener("blur", silenceAll);
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        return () => {
+            window.removeEventListener("pointerup", handlePointerUp);
+            window.removeEventListener("pointercancel", handlePointerUp);
+            window.removeEventListener("blur", silenceAll);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+
+            heldPointersRef.current.clear();
+
+            const synth = synthRef.current;
+            synthRef.current = null;
+            synth?.releaseAll();
+            synth?.dispose();
+        };
+    }, []);
+
+    const registerKey = (note: string) => (element: HTMLButtonElement | null) => {
+        if (element) keyRefsRef.current.set(note, element);
+        else keyRefsRef.current.delete(note);
+    };
+
+    const keyClassName = (key: PianoKey, isC: boolean) =>
+        [
+            "piano-key",
+            `piano-key--${key.kind}`,
+            isC ? "is-c" : "",
+            pressedNotes.has(key.note) ? "is-pressed" : "",
+            detectedNote === key.note ? "is-detected" : "",
+        ]
+            .filter(Boolean)
+            .join(" ");
+
+    return (
+        <div className="piano" ref={viewportRef} role="group" aria-label="Пианино">
+            <div className="piano__inner">
+                <div className="piano__whites">
+                    {whiteKeys.map((key) => {
+                        const isC = key.note.startsWith("C") && key.note[1] !== "#";
+
+                        return (
+                            <button
+                                key={key.note}
+                                ref={registerKey(key.note)}
+                                type="button"
+                                className={keyClassName(key, isC)}
+                                aria-label={`Нота ${key.note}`}
+                                onPointerDown={(event) => handlePointerDown(event, key.note)}
+                                onContextMenu={(event) => event.preventDefault()}
+                            >
+                                <span className="piano-key__label">{key.note}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {blackKeys.map((key) => (
+                    <button
+                        key={key.note}
+                        ref={registerKey(key.note)}
+                        type="button"
+                        className={keyClassName(key, false)}
+                        aria-label={`Нота ${key.note}`}
+                        style={{
+                            top: `${key.topPct}%`,
+                            height: `${key.heightPct}%`,
+                        }}
+                        onPointerDown={(event) => handlePointerDown(event, key.note)}
+                        onContextMenu={(event) => event.preventDefault()}
+                    >
+                        <span className="piano-key__label">{key.note}</span>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+export default Piano;

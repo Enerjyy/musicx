@@ -1,11 +1,16 @@
-import {useCountingHZ} from "../features/tuner/hooks/CountingHZ.ts";
+import {useCountingHZ} from "../features/tuner/hooks/useCountingHZ.ts";
 import CheckerHZ from "../features/tuner/components/CheckerHZ.tsx";
 
 
 const TunerPage = () => {
-    const { pitch, note, toggleMic } = useCountingHZ();
+    const { pitch, note, isActive, toggleMic } = useCountingHZ();
     return (
-        <CheckerHZ pitch={pitch} note={note} toggleMic={toggleMic}/>
+        <CheckerHZ
+            pitch={pitch}
+            note={note}
+            isActive={isActive}
+            toggleMic={toggleMic}
+        />
     )
 }
 
