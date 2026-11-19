@@ -4,6 +4,7 @@
     position: relative;
     width: 100%;
     height: 100%;
+    padding-bottom: env(safe-area-inset-bottom);
     overflow-x: hidden;
     overflow-y: auto;
     background: linear-gradient(180deg, #171a20 0%, #0c0f13 100%);
@@ -40,8 +41,9 @@
 
 .inner {
     position: relative;
-    min-height: 100%;
-    padding-bottom: env(safe-area-inset-bottom);
+    /* Высота = высота всех клавиш. Чёрные клавиши позиционируются в процентах
+       от неё, поэтому здесь нельзя задавать min-height/padding: иначе они
+       начинают «съезжать» относительно белых при прокрутке. */
 }
 
 .whites {
