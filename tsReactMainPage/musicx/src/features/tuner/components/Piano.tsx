@@ -151,22 +151,34 @@ const Piano = ({
         return synthRef.current;
     };
 
-    const attack = async (noteToPlay: string) => {
+    // Резолвится, когда AudioContext разморожен. Первый вызов Tone.start()
+    // должен произойти синхронно внутри user gesture, иначе браузер его
+    // отклонит — поэтому запускаем его прямо в обработчике, а не после await.
+    const ensureAudio = () => {
+        if (Tone.getContext().state === "running") return Promise.resolve();
+        return Tone.start().catch((error) => {
+            console.error("Не удалось запустить аудио:", error);
+        });
+    };
+
+    const attack = (noteToPlay: string) => {
         const synth = getSynth();
 
-        try {
-            if (Tone.getContext().state !== "running") {
-                await Tone.start();
+        // Если контекст ещё не запущен — стартуем и играем в любом случае.
+        // Раньше здесь был ранний выход по !stillHeld, из-за чего короткий
+        // тап (pointerup до разморозки контекста) не звучал вообще.
+        void ensureAudio().then(() => {
+            if (Tone.getContext().state !== "running") return;
+
+            const stillHeld = Array.from(heldPointersRef.current.values()).includes(noteToPlay);
+            if (stillHeld) {
+                synth.triggerAttack(noteToPlay);
+            } else {
+                // Тап уже отпущен — играем короткий "щелчок", чтобы нажатие
+                // всё равно было слышно.
+                synth.triggerAttackRelease(noteToPlay, 0.18);
             }
-        } catch (error) {
-            console.error("Не удалось запустить аудио:", error);
-            return;
-        }
-
-        const stillHeld = Array.from(heldPointersRef.current.values()).includes(noteToPlay);
-        if (!stillHeld) return;
-
-        synth.triggerAttack(noteToPlay);
+        });
     };
 
     const handlePointerDown = (
@@ -187,7 +199,7 @@ const Piano = ({
             return next;
         });
 
-        void attack(noteToPlay);
+        attack(noteToPlay);
     };
 
     useEffect(() => {

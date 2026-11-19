@@ -21,9 +21,17 @@ export interface TelegramWebApp {
     themeParams?: Record<string, string | undefined>;
     initData?: string;
     initDataUnsafe?: { user?: { id: number; first_name?: string; last_name?: string } };
-    onEvent: (event: 'viewportChanged' | 'fullscreenChanged' | 'themeChanged', handler: () => void) => void;
-    offEvent: (event: 'viewportChanged' | 'fullscreenChanged' | 'themeChanged', handler: () => void) => void;
+    onEvent: (event: TelegramEvent, handler: () => void) => void;
+    offEvent: (event: TelegramEvent, handler: () => void) => void;
 }
+
+/** Only the lifecycle events we actually subscribe to. */
+export type TelegramEvent =
+    | 'activated'
+    | 'viewportChanged'
+    | 'fullscreenChanged'
+    | 'fullscreenFailed'
+    | 'themeChanged';
 
 declare global {
     interface Window {

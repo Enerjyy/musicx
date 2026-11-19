@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react';
-import { getTelegramWebApp, isTelegramMiniApp } from './types';
+import { getTelegramWebApp } from './types';
 
 /**
- * Bootstraps the Telegram Mini App: signals that the app is ready, expands it
- * to full height, and asks for fullscreen when the client supports it
- * (Bot API 8.0+). Falls back silently in a regular browser.
+ * Height Telegram's floating header occupies in fullscreen, used as a fallback
+ * until the client reports the real contentSafeAreaInset. Without this the
+ * header renders underneath Telegram's close/minimise pill and only settles
+ * once the inset arrives.
+ */
+const FALLBACK_HEADER_TOP = 46;
+
+/**
+ * Bootstraps the Telegram Mini App: signals readiness, expands to full height,
+ * and requests fullscreen where supported (Bot API 8.0+). Silent no-op in a
+ * regular browser.
  *
  * Returns whether we're running inside Telegram, so the UI can adapt if needed.
  */
@@ -17,47 +25,53 @@ export const useTelegram = (): boolean => {
 
         setIsMiniApp(true);
 
-        // 1. Tell Telegram the app is mounted and can be shown.
         tg.ready();
-
-        // 2. Expand to the tallest viewport the client allows.
         tg.expand();
 
-        // 3. Go fullscreen when supported. Some clients reject the call unless
-        //    it happens on a user gesture, so we retry once on the first tap.
         const requestFullscreen = () => {
             if (typeof tg.requestFullscreen !== 'function' || tg.isFullscreen) return;
             try {
                 tg.requestFullscreen();
             } catch {
-                // Older clients / denied gesture — expand() above is enough.
+                // Older clients, or the gesture wasn't accepted — expand() is enough.
             }
         };
 
         requestFullscreen();
 
-        const onFirstInteraction = () => {
+        // Some clients only honour the request after the webview is fully active,
+        // and others require a user gesture. Retry on activation and on the first
+        // tap; both are cheap and idempotent thanks to the isFullscreen guard.
+        const onActivated = () => requestFullscreen();
+        const onFirstPointer = () => {
             requestFullscreen();
-            window.removeEventListener('pointerdown', onFirstInteraction);
+            window.removeEventListener('pointerdown', onFirstPointer);
         };
-        window.addEventListener('pointerdown', onFirstInteraction, { once: true });
 
-        // Keep CSS safe-area vars in sync with what the client reports.
+        tg.onEvent('activated', onActivated);
+        window.addEventListener('pointerdown', onFirstPointer, { once: true });
+
         const syncInsets = () => {
             const root = document.documentElement;
             const safe = tg.safeAreaInset;
             const content = tg.contentSafeAreaInset;
 
-            root.style.setProperty('--tg-safe-top', `${safe?.top ?? 0}px`);
-            root.style.setProperty('--tg-safe-bottom', `${safe?.bottom ?? 0}px`);
+            // In fullscreen Telegram overlays its own header; contentSafeAreaInset
+            // carries that height. safeAreaInset only covers the device notch.
+            // The fallback prevents a flash of the header sitting under the pill.
+            const top = Math.max(
+                safe?.top ?? 0,
+                content?.top ?? 0,
+                tg.isFullscreen ? FALLBACK_HEADER_TOP : 0,
+            );
+            const bottom = Math.max(safe?.bottom ?? 0, content?.bottom ?? 0);
+
+            root.style.setProperty('--tg-inset-top', `${top}px`);
+            root.style.setProperty('--tg-inset-bottom', `${bottom}px`);
             root.style.setProperty('--tg-safe-left', `${safe?.left ?? 0}px`);
             root.style.setProperty('--tg-safe-right', `${safe?.right ?? 0}px`);
 
-            root.style.setProperty('--tg-content-top', `${content?.top ?? 0}px`);
-            root.style.setProperty('--tg-content-bottom', `${content?.bottom ?? 0}px`);
-
-            // In fullscreen the layout viewport can disagree with dvh, so mirror
-            // the height Telegram reports and let CSS use it when present.
+            // Fullscreen can disagree with dvh, so mirror the reported height.
             if (tg.viewportHeight && tg.viewportHeight > 0) {
                 root.style.setProperty('--tg-viewport-height', `${tg.viewportHeight}px`);
             }
@@ -67,15 +81,15 @@ export const useTelegram = (): boolean => {
 
         tg.onEvent('viewportChanged', syncInsets);
         tg.onEvent('fullscreenChanged', syncInsets);
+        tg.onEvent('activated', syncInsets);
 
         return () => {
             tg.offEvent('viewportChanged', syncInsets);
             tg.offEvent('fullscreenChanged', syncInsets);
-            window.removeEventListener('pointerdown', onFirstInteraction);
+            tg.offEvent('activated', syncInsets);
+            window.removeEventListener('pointerdown', onFirstPointer);
         };
     }, []);
 
     return isMiniApp;
 };
-
-export { isTelegramMiniApp } from './types';
