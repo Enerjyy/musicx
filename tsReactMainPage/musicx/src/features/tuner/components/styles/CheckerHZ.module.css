@@ -1,401 +1,179 @@
 .checker {
-    width: min(1600px, 100%);
-    height: 100svh;
-    margin: 0 auto;
-    padding: clamp(16px, 2.6vw, 38px);
+    height: 100vh;
+    height: 100dvh;
+    display: grid;
+    grid-template-columns: clamp(220px, 24vw, 360px) minmax(0, 1fr);
+    overflow: hidden;
+}
+
+.keyboard {
+    min-width: 0;
+    min-height: 0;
+}
+
+.side {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
     display: flex;
-    flex-direction: column;
-    gap: clamp(14px, 2vh, 26px);
-}
-
-.header {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 20px;
-    flex-wrap: wrap;
-}
-
-.eyebrow {
-    margin: 0 0 7px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: var(--muted);
-}
-
-.title {
-    margin: 0;
-    font-size: clamp(23px, 2.3vw, 32px);
-    font-weight: 600;
-    letter-spacing: -0.03em;
+    align-items: center;
+    justify-content: center;
+    padding:
+            max(16px, env(safe-area-inset-top))
+            max(16px, env(safe-area-inset-right))
+            max(16px, env(safe-area-inset-bottom))
+            16px;
 }
 
 .micButton {
-    appearance: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 11px 19px;
-    border: 1px solid var(--line);
-    border-radius: 999px;
+    position: absolute;
+    top: max(16px, env(safe-area-inset-top));
+    right: max(16px, env(safe-area-inset-right));
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 54px;
+    height: 54px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
     background: rgba(255, 255, 255, 0.04);
-    color: var(--text);
-    font-size: 14px;
-    font-weight: 600;
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
     transition:
-        background 0.2s ease,
-        border-color 0.2s ease,
-        transform 0.08s ease;
-}
-
-.micButton:hover {
-    background: rgba(255, 255, 255, 0.08);
+            color 0.25s ease,
+            background 0.25s ease,
+            border-color 0.25s ease,
+            box-shadow 0.25s ease,
+            transform 0.08s ease;
 }
 
 .micButton:active {
-    transform: scale(0.98);
+    transform: scale(0.94);
 }
 
 .micButton:focus-visible {
     outline: 2px solid rgba(124, 232, 213, 0.7);
-    outline-offset: 2px;
+    outline-offset: 3px;
 }
 
-.micDot {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: #6d727c;
-    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.04);
-    transition: background 0.2s ease;
+.micButton svg {
+    width: 24px;
+    height: 24px;
 }
 
-.micButtonActive {
-    border-color: rgba(255, 107, 107, 0.35);
-    background: rgba(255, 107, 107, 0.08);
+.isOff {
+    color: #cb2f2f;
 }
 
-.micButtonActive .micDot {
-    background: var(--red);
-    animation: micPulse 1.6s ease-out infinite;
-}
-
-@keyframes micPulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.45);
-    }
-    70% {
-        box-shadow: 0 0 0 9px rgba(255, 107, 107, 0);
-    }
-    100% {
-        box-shadow: 0 0 0 0 rgba(255, 107, 107, 0);
-    }
-}
-
-.body {
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    grid-template-columns: clamp(168px, 22vw, 290px) minmax(0, 1fr);
-    gap: clamp(12px, 2vw, 28px);
-    align-items: stretch;
-}
-
-.keyboard,
-.readoutPanel {
-    min-height: 0;
-    border: 1px solid var(--line);
-    border-radius: 26px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
-    box-shadow:
-        0 30px 80px rgba(0, 0, 0, 0.32),
-        inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-/* ---------- Keyboard panel ---------- */
-
-.keyboard {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: clamp(12px, 1.4vw, 18px);
-    overflow: hidden;
-}
-
-.keyboardHead {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-}
-
-.keyboardHead .eyebrow {
-    margin: 0;
-    font-size: 10px;
-    letter-spacing: 0.16em;
-}
-
-.keyboardRange {
-    padding: 4px 9px;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.04);
-    color: rgba(236, 233, 226, 0.4);
-    font-size: 10px;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-
-.caption {
-    flex: 0 0 auto;
-    margin: 0;
-    font-size: 12px;
-    line-height: 1.5;
-    color: rgba(236, 233, 226, 0.36);
-}
-
-/* ---------- Readout panel ---------- */
-
-.readoutPanel {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: clamp(18px, 2.6vw, 36px);
-    overflow: hidden;
-    background:
-        radial-gradient(120% 100% at 50% 28%, rgba(124, 232, 213, 0.045), transparent 60%),
-        var(--panel);
-    transition: border-color 0.4s ease;
-}
-
-.readoutHasSignal {
-    border-color: rgba(124, 232, 213, 0.16);
-}
-
-.readoutGlow {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: min(62%, 460px);
-    aspect-ratio: 1;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(124, 232, 213, 0.3), transparent 68%);
-    filter: blur(42px);
-    transform: translate(-50%, -50%);
-    opacity: 0;
-    transition: opacity 0.5s ease;
-    pointer-events: none;
-}
-
-.readoutHasSignal .readoutGlow {
-    opacity: 1;
+.isOn {
+    color: #5be49b;
+    border-color: rgba(91, 228, 155, 0.35);
+    background: rgba(91, 228, 155, 0.08);
+    box-shadow: 0 0 24px rgba(91, 228, 155, 0.18);
 }
 
 .readout {
-    position: relative;
-    z-index: 1;
-    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
+    gap: 6px;
+    min-height: 1.2em;
     text-align: center;
+    pointer-events: none;
+    user-select: none;
 }
 
-.readoutLabel {
-    margin: 0 0 10px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: rgba(236, 233, 226, 0.34);
-}
-
-.readoutNote {
+.note {
     margin: 0;
-    font-size: clamp(88px, 17vw, 260px);
+    font-size: clamp(56px, 13vw, 210px);
     font-weight: 650;
     line-height: 0.86;
     letter-spacing: -0.06em;
-    color: transparent;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.12));
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: rgba(236, 233, 226, 0.44);
     font-variant-numeric: tabular-nums;
-    opacity: 0.22;
-    transition: opacity 0.4s ease;
 }
 
-.readoutHasSignal .readoutNote {
-    opacity: 0.52;
-}
-
-.readoutNoteIdle {
-    font-size: clamp(48px, 6vw, 80px);
-    line-height: 1.4;
-    opacity: 0.16;
-}
-
-.readoutHz {
-    margin: 14px 0 0;
+.hz {
+    margin: 0;
     display: flex;
     align-items: baseline;
-    gap: 9px;
-    font-size: clamp(30px, 3.6vw, 48px);
+    gap: 7px;
+    font-size: clamp(18px, 2.2vw, 30px);
     font-weight: 300;
-    letter-spacing: -0.02em;
-    color: rgba(236, 233, 226, 0.45);
+    letter-spacing: -0.01em;
+    color: rgba(236, 233, 226, 0.3);
     font-variant-numeric: tabular-nums;
-    transition: color 0.4s ease;
 }
 
-.readoutHasSignal .readoutHz {
-    color: rgba(236, 233, 226, 0.68);
-}
-
-.readoutHz span {
-    font-size: 0.42em;
+.hz span {
+    font-size: 0.55em;
     font-weight: 600;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: rgba(236, 233, 226, 0.3);
+    color: rgba(236, 233, 226, 0.22);
 }
-
-.readoutState {
-    margin: 18px 0 0;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: rgba(236, 233, 226, 0.28);
-    transition: color 0.3s ease;
-}
-
-.readoutStateLive {
-    color: rgba(124, 232, 213, 0.72);
-}
-
-/* ---------- Responsive ---------- */
 
 @media (max-width: 760px) {
     .checker {
-        padding: 14px;
-        gap: 14px;
+        grid-template-columns: 58% minmax(0, 1fr);
     }
 
-    .header {
-        align-items: center;
-        gap: 10px;
-    }
-
-    .eyebrow {
-        font-size: 9px;
-        letter-spacing: 0.14em;
-        margin-bottom: 5px;
-    }
-
-    .title {
-        font-size: 21px;
+    .side {
+        padding:
+                max(12px, env(safe-area-inset-top))
+                max(12px, env(safe-area-inset-right))
+                max(12px, env(safe-area-inset-bottom))
+                12px;
     }
 
     .micButton {
-        gap: 8px;
-        padding: 9px 14px;
-        font-size: 12px;
+        top: max(12px, env(safe-area-inset-top));
+        right: max(12px, env(safe-area-inset-right));
+        width: 50px;
+        height: 50px;
     }
 
-    .micDot {
-        width: 8px;
-        height: 8px;
+    .micButton svg {
+        width: 22px;
+        height: 22px;
     }
 
-    .body {
-        grid-template-columns: minmax(136px, 42vw) minmax(0, 1fr);
-        gap: 12px;
+    .note {
+        font-size: clamp(48px, 15vw, 78px);
     }
 
-    .keyboard {
-        gap: 8px;
-        padding: 10px;
-        border-radius: 20px;
-    }
-
-    .keyboardHead .eyebrow {
-        font-size: 8px;
-        letter-spacing: 0.08em;
-    }
-
-    .keyboardRange {
-        padding: 3px 6px;
-        font-size: 9px;
-    }
-
-    .caption {
-        display: none;
-    }
-
-    .readoutPanel {
-        padding: 14px;
-        border-radius: 20px;
-    }
-
-    .readoutLabel {
-        margin-bottom: 6px;
-        font-size: 9px;
-        letter-spacing: 0.13em;
-    }
-
-    .readoutNote {
-        font-size: clamp(52px, 14vw, 84px);
-    }
-
-    .readoutNoteIdle {
-        font-size: 40px;
-    }
-
-    .readoutHz {
-        margin-top: 10px;
-        font-size: 24px;
-    }
-
-    .readoutState {
-        margin-top: 12px;
-        font-size: 9px;
-        letter-spacing: 0.12em;
-    }
-
-    .readoutGlow {
-        width: 80%;
+    .hz {
+        font-size: 18px;
     }
 }
 
 @media (max-width: 380px) {
-    .body {
-        grid-template-columns: minmax(124px, 44vw) minmax(0, 1fr);
+    .checker {
+        grid-template-columns: 60% minmax(0, 1fr);
     }
 
-    .header {
-        flex-wrap: wrap;
-    }
-
-    .readoutNote {
-        font-size: 48px;
+    .note {
+        font-size: 46px;
     }
 }
 
-@media (max-height: 620px) {
-    .checker {
-        height: auto;
-        min-height: 100svh;
+@media (max-height: 500px) {
+    .micButton {
+        width: 44px;
+        height: 44px;
     }
 
-    .body {
-        min-height: 420px;
+    .micButton svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .note {
+        font-size: clamp(38px, 9vw, 58px);
+    }
+
+    .hz {
+        font-size: 16px;
     }
 }
