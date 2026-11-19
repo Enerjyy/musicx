@@ -4,9 +4,15 @@ const MetronomeSlider = ({BPMValue, setBPMValue}: any): JSX.Element => {
 
     return (
         <div className={styles.sliderContainer}>
-
-            <p>BPM: {BPMValue}</p>
-            <input type="range" min="20" className={styles.rangeInput} max="340" onChange={(e) => setBPMValue(Number(e.target.value))} value={BPMValue}/>
+            <div className={styles.sliderValue}>BPM: {BPMValue}</div>
+            <input 
+                type="range" 
+                min="20" 
+                className={styles.rangeInput} 
+                max="340" 
+                onChange={(e) => setBPMValue(Number(e.target.value))} 
+                value={BPMValue}
+            />
         </div>)
 }
 
