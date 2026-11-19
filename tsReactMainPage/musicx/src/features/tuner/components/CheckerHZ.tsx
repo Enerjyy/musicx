@@ -1,4 +1,4 @@
-import Piano from "./piano";
+import Piano from "./Piano.tsx";
 import styles from "./styles/CheckerHZ.module.css";
 
 interface CheckerHZProps {

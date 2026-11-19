@@ -2,7 +2,7 @@ import * as Tone from "tone";
 import { YIN } from "pitchfinder";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const MIN_FREQUENCY = 55; // A1
+const MIN_FREQUENCY = 65.41; // C2 (минимальная нота, совпадающая с клавиатурой)
 const MAX_FREQUENCY = 1800; // ~A6
 const UI_REFRESH_MS = 70;
 const SMOOTHING_SIZE = 5;
