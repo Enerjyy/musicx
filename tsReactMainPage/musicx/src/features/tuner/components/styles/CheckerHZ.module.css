@@ -1,439 +1,210 @@
-.retro-checker {
+.checker {
     height: 100%;
     width: 100%;
     flex: 1 1 auto;
     min-width: 0;
-    max-height: calc(100vh - var(--navbar-height, 60px));
-    max-height: calc(100dvh - var(--navbar-height, 60px));
+    /* Страховка, если родитель без фиксированной высоты (например, контент
+       лежит в потоке под фиксированным нижним навбаром). Если контейнер уже
+       ограничен, max-height просто не срабатывает. */
+    max-height: calc(100vh - var(--tuner-bottom-inset, 0px));
+    max-height: calc(100dvh - var(--tuner-bottom-inset, 0px));
     min-height: 0;
     display: grid;
     grid-template-columns: clamp(220px, 24vw, 360px) minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
     overflow: hidden;
-    background: var(--retro-bg);
-    color: var(--retro-text);
-    font-family: var(--retro-font);
-    border: 2px solid var(--retro-primary);
-    box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
-    position: relative;
+    background: #090b0e;
+    color: #ece9e2;
+    font-family: "Segoe UI", Inter, system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
 }
 
-.retro-checker::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--retro-primary), transparent);
-    animation: scanLine 3s linear infinite;
-    z-index: 1;
-}
-
-@keyframes scanLine {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(100vh); }
-}
-
-.retro-keyboard {
+.keyboard {
     min-width: 0;
     min-height: 0;
-    position: relative;
-    z-index: 2;
 }
 
-.retro-side {
+.side {
     position: relative;
     min-width: 0;
     min-height: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
-    background: var(--retro-panel-bg);
-    border-left: 3px solid var(--retro-primary);
-    box-shadow: inset -4px 0 8px rgba(0, 20, 0, 0.5);
-    position: relative;
-    overflow: hidden;
+    padding:
+            max(16px, env(safe-area-inset-top))
+            max(16px, env(safe-area-inset-right))
+            max(16px, env(safe-area-inset-bottom))
+            16px;
+    background:
+            radial-gradient(900px 620px at 10% -10%, rgba(73, 136, 130, 0.16), transparent 60%),
+            radial-gradient(820px 620px at 96% 112%, rgba(117, 87, 168, 0.14), transparent 60%),
+            #090b0e;
 }
 
-.retro-side::before {
-    content: '';
+.side::before {
+    content: "";
     position: absolute;
     inset: 0;
     background-image:
-        linear-gradient(rgba(0, 255, 0, 0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0, 255, 0, 0.05) 1px, transparent 1px);
-    background-size: 40px 40px;
-    mask-image: radial-gradient(ellipse at 50% 40%, black 30%, transparent 80%);
+            linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse at 50% 40%, black 25%, transparent 78%);
     pointer-events: none;
-    z-index: 1;
 }
 
-.retro-mic-button {
+.micButton {
     position: absolute;
-    top: 20px;
-    right: 20px;
-    z-index: 10;
+    top: max(16px, env(safe-area-inset-top));
+    right: max(16px, env(safe-area-inset-right));
+    z-index: 2;
     display: grid;
     place-items: center;
-    width: 64px;
-    height: 64px;
+    width: 54px;
+    height: 54px;
     padding: 0;
-    border: 3px solid var(--retro-primary);
-    border-radius: 0;
-    background: var(--retro-surface);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.04);
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
-    transition: all 0.2s ease;
-    box-shadow: 3px 3px 0 var(--retro-pixel-shadow);
-    image-rendering: pixelated;
+    transition:
+            color 0.25s ease,
+            background 0.25s ease,
+            border-color 0.25s ease,
+            box-shadow 0.25s ease,
+            transform 0.08s ease;
+}
+
+.micButton:active {
+    transform: scale(0.94);
+}
+
+.micButton:focus-visible {
+    outline: 2px solid rgba(124, 232, 213, 0.7);
+    outline-offset: 3px;
+}
+
+.micButton svg {
+    width: 24px;
+    height: 24px;
+}
+
+.isOff {
+    color: #ff6b6b;
+}
+
+.isOn {
+    color: #5be49b;
+    border-color: rgba(91, 228, 155, 0.35);
+    background: rgba(91, 228, 155, 0.08);
+    box-shadow: 0 0 24px rgba(91, 228, 155, 0.18);
+}
+
+.readout {
     position: relative;
-}
-
-.retro-mic-button::before {
-    content: '';
-    position: absolute;
-    inset: -4px;
-    border: 2px solid var(--retro-secondary);
-    border-radius: 0;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    animation: buttonPulse 2s infinite;
-}
-
-.retro-mic-button:hover::before {
-    opacity: 1;
-}
-
-@keyframes buttonPulse {
-    0%, 100% { opacity: 0; }
-    50% { opacity: 0.5; }
-}
-
-.retro-mic-button:active {
-    transform: translate(2px, 2px);
-    box-shadow: 1px 1px 0 var(--retro-pixel-shadow);
-}
-
-.retro-mic-button:focus-visible {
-    outline: 3px solid var(--retro-secondary);
-    outline-offset: 2px;
-    box-shadow: 0 0 20px var(--retro-secondary);
-}
-
-.retro-mic-button svg {
-    width: 28px;
-    height: 28px;
-    fill: var(--retro-primary);
-    transition: all 0.2s ease;
-}
-
-.retro-mic-button:hover svg {
-    fill: var(--retro-secondary);
-    transform: scale(1.1);
-}
-
-.retro-mic-button.isOff {
-    border-color: #ff0000;
-    box-shadow: 3px 3px 0 #330000;
-}
-
-.retro-mic-button.isOff svg {
-    fill: #ff0000;
-}
-
-.retro-mic-button.isOff:hover svg {
-    fill: #ff3333;
-}
-
-.retro-mic-button.isOn {
-    border-color: var(--retro-secondary);
-    background: rgba(0, 255, 0, 0.1);
-    box-shadow: 
-        0 0 20px var(--retro-secondary),
-        inset 0 0 10px rgba(0, 255, 0, 0.2);
-}
-
-.retro-mic-button.isOn svg {
-    fill: var(--retro-secondary);
-    filter: drop-shadow(0 0 10px var(--retro-secondary));
-}
-
-/* Mic button label */
-.retro-mic-label {
-    position: absolute;
-    bottom: -25px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 0.7rem;
-    color: var(--retro-text);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-family: var(--retro-font);
-    image-rendering: pixelated;
-    white-space: nowrap;
-    opacity: 0.8;
-    transition: opacity 0.3s ease;
-}
-
-.retro-mic-button:hover .retro-mic-label {
-    opacity: 1;
-    color: var(--retro-secondary);
-}
-
-.retro-mic-button.isOn .retro-mic-label {
-    color: var(--retro-secondary);
-    font-weight: bold;
-    text-shadow: 0 0 5px var(--retro-secondary);
-}
-
-.retro-readout {
-    position: relative;
-    z-index: 3;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 15px;
+    gap: 6px;
     min-height: 1.2em;
     text-align: center;
     pointer-events: none;
     user-select: none;
-    padding: 30px;
-    background: linear-gradient(180deg, transparent, rgba(0, 20, 0, 0.3));
-    border-top: 2px solid var(--retro-primary);
 }
 
-.retro-note {
+.note {
     margin: 0;
     font-size: clamp(56px, 13vw, 210px);
-    font-weight: 700;
+    font-weight: 650;
     line-height: 0.86;
     letter-spacing: -0.06em;
-    color: var(--retro-secondary);
+    color: rgba(236, 233, 226, 0.44);
     font-variant-numeric: tabular-nums;
-    text-shadow: 
-        0 0 20px var(--retro-secondary),
-        2px 2px 0 var(--retro-pixel-shadow);
-    position: relative;
 }
 
-.retro-note::after {
-    content: '';
-    position: absolute;
-    bottom: -10px;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: var(--retro-secondary);
-    opacity: 0.3;
-    animation: noteGlow 2s ease-in-out infinite;
-}
-
-@keyframes noteGlow {
-    0%, 100% { opacity: 0.3; }
-    50% { opacity: 0.8; }
-}
-
-.retro-hz {
+.hz {
     margin: 0;
     display: flex;
     align-items: baseline;
-    gap: 10px;
+    gap: 7px;
     font-size: clamp(18px, 2.2vw, 30px);
-    font-weight: 400;
+    font-weight: 300;
     letter-spacing: -0.01em;
-    color: var(--retro-text);
+    color: rgba(236, 233, 226, 0.3);
     font-variant-numeric: tabular-nums;
-    opacity: 0.7;
 }
 
-.retro-hz span {
-    font-size: 0.6em;
+.hz span {
+    font-size: 0.55em;
     font-weight: 600;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--retro-primary);
-    text-shadow: 0 0 10px var(--retro-primary);
+    color: rgba(236, 233, 226, 0.22);
 }
 
-/* Retro tuning display */
-.retro-tuning-display {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    padding: 20px;
-    background: var(--retro-surface);
-    border: 2px solid var(--retro-primary);
-    border-radius: 0;
-    margin: 20px;
-    box-shadow: 3px 3px 0 var(--retro-pixel-shadow);
-    position: relative;
-    z-index: 2;
-}
-
-.retro-tuning-display::before {
-    content: 'TUNING';
-    position: absolute;
-    top: -12px;
-    left: 20px;
-    background: var(--retro-bg);
-    padding: 0 10px;
-    color: var(--retro-secondary);
-    font-size: 0.8rem;
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-}
-
-.retro-tuning-value {
-    font-size: 2rem;
-    font-weight: bold;
-    color: var(--retro-text);
-    font-family: var(--retro-font);
-}
-
-.retro-tuning-status {
-    font-size: 1rem;
-    color: var(--retro-primary);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-/* Responsive design */
 @media (max-width: 760px) {
-    .retro-checker {
-        grid-template-columns: 1fr; /* Stack vertically on mobile */
-        grid-template-rows: auto 1fr; /* Header, piano, side panel */
-        max-height: calc(100vh - var(--navbar-height, 60px));
+    .checker {
+        grid-template-columns: 58% minmax(0, 1fr);
     }
-    
-    .retro-keyboard {
-        order: 1; /* Piano at top */
-        min-height: 200px; /* Give piano a minimum height */
+
+    .side {
+        padding:
+                max(12px, env(safe-area-inset-top))
+                max(12px, env(safe-area-inset-right))
+                max(12px, env(s3))
+                12px;
     }
-    
-    .retro-side {
-        order: 2; /* Side panel below piano */
-        padding: 15px;
-        margin-top: 10px;
-        background: var(--retro-panel-bg);
-        border-top: 3px solid var(--retro-primary);
-        box-shadow: inset 0 -4px 8px rgba(0, 20, 0, 0.5);
-    }
-    
-    .retro-mic-button {
-        position: static; /* Reset absolute positioning */
-        margin: 0 auto 10px auto; /* Center with left alignment */
+
+    .micButton {
+        top: max(12px, env(safe-area-inset-top));
+        right: max(12px, env(safe-area-inset-right));
         width: 50px;
         height: 50px;
     }
-    
-    .retro-mic-button svg {
+
+    .micButton svg {
         width: 22px;
         height: 22px;
     }
-    
-    .retro-mic-label {
-        position: static; /* Reset absolute positioning */
-        transform: none;
-        margin: 5px auto;
-        text-align: center;
-        font-size: 0.8rem;
+
+    .note {
+        font-size: clamp(48px, 15vw, 78px);
     }
-    
-    .retro-note {
-        font-size: clamp(36px, 12vw, 78px); /* Larger font for mobile */
-        text-align: .center; /* Center align note display */
-    }
-    
-    .retro-hz {
-        font-size: 16px;
-        text-align: center;
-    }
-    
-    .retro-tuning-display {
-        margin: 10px auto;
-        padding: 12px;
-        width: 80%; /* Don't stretch full width */
-        text-align: center;
-    }
-    
-    .retro-tuning-value {
-        font-size: 1.4rem;
-    }
-    
-    /* Mobile-specific piano styling */
-    .piano {
-        margin: 10px 0;
-        border-width: 2px;
-    }
-    
-    .piano::-webkit-scrollbar {
-        width: 4px; /* Thinner scrollbar for mobile */
+
+    .hz {
+        font-size: 18px;
     }
 }
 
 @media (max-width: 380px) {
-    .retro-checker {
-        grid-template-columns: 1fr;
+    .checker {
+        grid-template-columns: 60% minmax(0, 1fr);
     }
-    
-    .retro-note {
-        font-size: 42px; /* Even larger for very small screens */
-    }
-    
-    .retro-mic-button {
-        width: 44px;
-        height: 44px;
-    }
-    
-    .retro-mic-button svg {
-        width: 20px;
-        height: 20px;
-    }
-    
-    .retro-tuning-display {
-        width: 90%;
-        padding: 10px;
-    }
-    
-    .retro-tuning-value {
-        font-size: 1.3rem;
-    }
-    
-    .retro-tuning-status {
-        font-size: 0.9rem;
+
+    .note {
+        font-size: 46px;
     }
 }
 
 @media (max-height: 500px) {
-    .retro-mic-button {
+    .micButton {
         width: 44px;
         height: 44px;
     }
-    
-    .retro-mic-button svg {
+
+    .micButton svg {
         width: 20px;
         height: 20px;
     }
-    
-    .retro-note {
+
+    .note {
         font-size: clamp(38px, 9vw, 58px);
     }
-    
-    .retro-hz {
+
+    .hz {
         font-size: 16px;
-    }
-    
-    .retro-tuning-display {
-        margin: 8px auto;
-        padding: 8px;
-        width: 70%;
-    }
-    
-    .retro-tuning-value {
-        font-size: 1.2rem;
     }
 }
