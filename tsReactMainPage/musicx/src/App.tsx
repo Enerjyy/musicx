@@ -2,6 +2,7 @@ import './App.css'
 import MetronomePage from "./pages/MetronomePage.tsx";
 import TunerPage from "./pages/TunerPage.tsx";
 import { useState } from 'react';
+import { useTelegram } from './telegram/useTelegram';
 
 const PAGES = {
     tuner: {label: 'Tuner', component: <TunerPage />},
@@ -15,8 +16,11 @@ const PAGE_KEYS = Object.keys(PAGES) as PageKey[];
 const App = () => {
     const [currentPage, setCurrentPage] = useState<PageKey>('tuner');
 
+    // ready() + expand() + requestFullscreen() when opened as a Telegram Mini App
+    const inTelegram = useTelegram();
+
     return (
-        <div className="app">
+        <div className={'app' + (inTelegram ? ' app--tg' : '')}>
             <header className="app-header">
                 <h1 className="app-title">musicx</h1>
                 <p className="app-subtitle">tuner &amp; metronome</p>
