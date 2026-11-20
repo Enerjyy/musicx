@@ -50,6 +50,11 @@
   -webkit-overflow-scrolling: touch;
 }
 
+.app-main--calendar {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* ── Bottom nav ─────────────────────────────────────────── */
 
 .app-nav {

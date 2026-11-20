@@ -1,12 +1,14 @@
 import './App.css'
 import MetronomePage from "./pages/MetronomePage.tsx";
 import TunerPage from "./pages/TunerPage.tsx";
+import CalendarPage from "./pages/CalendarPage.tsx";
 import { useState } from 'react';
 import { useTelegram } from './telegram/useTelegram';
 
 const PAGES = {
     tuner: {label: 'Tuner', component: <TunerPage />},
     metronome: {label: 'Metronome', component: <MetronomePage />},
+    calendar: {label: 'Calendar', component: <CalendarPage />},
 }
 
 type PageKey = keyof typeof PAGES;
