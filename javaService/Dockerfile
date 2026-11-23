@@ -3,11 +3,14 @@ WORKDIR /app
 
 COPY gradlew build.gradle.kts settings.gradle.kts ./
 COPY gradle ./gradle
-COPY src ./src
-
 RUN chmod +x gradlew
 
-RUN ./gradlew bootJar -DskipTests
+# Dependencies are resolved in their own layer: as long as build.gradle.kts is
+# unchanged this layer comes from cache and only the sources are recompiled.
+RUN ./gradlew dependencies --no-daemon > /dev/null
+
+COPY src ./src
+RUN ./gradlew bootJar -DskipTests --no-daemon
 
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
