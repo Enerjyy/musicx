@@ -1,5 +1,6 @@
 package enerjy.musicxService.api;
 
+import enerjy.musicxService.LlmRequests.LlmRequestException;
 import enerjy.musicxService.security.InitDataException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,5 +38,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleBadRequest(IllegalArgumentException e) {
         return ResponseEntity.badRequest()
                 .body(Map.of("error", "bad request"));
+    }
+
+    @ExceptionHandler(LlmRequestException.class)
+    public ResponseEntity<Map<String, String>> handleLlm(LlmRequestException e) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(Map.of("error", "ai unavailable"));
     }
 }

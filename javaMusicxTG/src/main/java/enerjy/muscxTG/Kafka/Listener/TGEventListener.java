@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class TGEventListener {
+
     private final SendAPI sendAPI;
     private final ObjectMapper objectMapper;
 
@@ -16,7 +17,7 @@ public class TGEventListener {
         this.objectMapper = objectMapper;
     }
 
-    @KafkaListener(topics = "telegram-interactions", groupId = "telegram-bot-group-latest1")
+    @KafkaListener(topics = "telegram-interactions", groupId = "telegram-bot-group")
     public void handleInteraction(String json) {
         try {
             TelegramInteractionEvent event;
@@ -27,12 +28,9 @@ public class TGEventListener {
                 event = objectMapper.readValue(innerJson, TelegramInteractionEvent.class);
             }
 
-            System.out.println("Message received successfully: " + event.getText());
             sendAPI.sendMessage(event.getChatId(), event.getText());
-
         } catch (Exception e) {
             System.err.println("Failed to parse payload: " + json);
-            e.printStackTrace();
         }
     }
 }

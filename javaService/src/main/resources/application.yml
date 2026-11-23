@@ -9,6 +9,11 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: musicx-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
   datasource:
     url: ${SPRING_DATASOURCE_URL}
@@ -36,9 +41,6 @@ spring:
 
 telegram:
   bot-token: ${BOT_TOKEN}
-  # Сколько секунд initData считается свежим. Подписанные данные от Telegram
-  # не протухают сами по себе — auth_date единственная защита от реиграбельности.
-  # Сутки: Mini App не обновляет initData, короткое окно выкидывало бы из сессии.
   max-age-seconds: ${TELEGRAM_MAX_AGE_SECONDS:86400}
 
 jwt:
@@ -47,6 +49,11 @@ jwt:
   # Время жизни выданного токена, секунды.
   ttl-seconds: ${JWT_TTL_SECONDS:86400}
   issuer: musicx
+
+openrouter:
+  base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}
+  api-key: ${OPENROUTER_API_KEY}
+  model: ${OPENROUTER_MODEL:baidu/ernie-5.5-flash-preview}
 
 ---
 # Профиль для тестов: свои значения, чтобы не требовать реальный .env.

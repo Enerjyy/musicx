@@ -29,6 +29,11 @@ telegram:
   bot-token: test-bot-token-1234567890
   max-age-seconds: 86400
 
+openrouter:
+  base-url: http://localhost:1
+  api-key: test-key
+  model: test/model
+
 jwt:
   secret: integration-test-secret-key-at-least-32-bytes
   ttl-seconds: 3600

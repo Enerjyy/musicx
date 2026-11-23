@@ -7,7 +7,9 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class TGInteractionProducer {
-    private static final String TOPIC = "telegram-interactions";
+
+    public static final String TOPIC = "telegram-interactions";
+
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
 
@@ -19,14 +21,9 @@ public class TGInteractionProducer {
     public void sendNotification(Long chatId, String text) {
         try {
             TelegramInteractionEvent event = new TelegramInteractionEvent(chatId, text);
-
-            String json = objectMapper.writeValueAsString(event);
-
-            kafkaTemplate.send(TOPIC, json);
-            System.out.println("Notif sent alr: " + json);
-        }
-        catch (Exception e) {
-            e.printStackTrace();
+            kafkaTemplate.send(TOPIC, String.valueOf(chatId), objectMapper.writeValueAsString(event));
+        } catch (Exception e) {
+            throw new IllegalStateException("cannot publish telegram interaction", e);
         }
     }
 }
