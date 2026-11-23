@@ -29,3 +29,9 @@ dependencies {
 tasks.withType<Test> {
 	useJUnitPlatform()
 }
+
+// Docker copies build/libs/*.jar to app.jar, and a glob matching two files
+// fails. Keep only the executable boot jar and drop the plain one.
+tasks.named("jar") {
+    enabled = false
+}
