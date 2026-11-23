@@ -121,8 +121,11 @@
 .day {
     aspect-ratio: 1 / 1;
     min-width: 0;
-    display: grid;
-    place-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
     padding: 0;
     border-radius: var(--r-sm);
     font-size: 14px;
@@ -131,6 +134,23 @@
     background: var(--surface-2);
     font-variant-numeric: tabular-nums;
     transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.dayNumber {
+    line-height: 1;
+}
+
+/* Маркер наличия записей. Точка, а не полоса: не меняет геометрию кнопки. */
+.dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+    transition: background-color 0.15s ease;
+}
+
+.dayOutside .dot {
+    background: var(--ink-3);
 }
 
 .day:hover {
@@ -162,26 +182,76 @@
     background: var(--accent);
 }
 
-/* ── Caption ──────────────────────────────────────────────────────── */
+/* ── Selected day details ─────────────────────────────────────────── */
 
-.meta {
+.details {
+    width: 100%;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 4px;
+    gap: 10px;
 }
 
-.caption {
+.detailsTitle {
+    padding-left: 2px;
     font-size: 12px;
+    font-weight: 550;
+    letter-spacing: 0.02em;
+    color: var(--ink-2);
+    text-transform: capitalize;
+}
+
+.entries {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.entry {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border-radius: var(--r-md);
+    outline: 1px solid var(--line);
+}
+
+.entryTime {
+    flex: 0 0 auto;
+    min-width: 42px;
+    font-size: 12.5px;
+    font-weight: 550;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+}
+
+.entryBody {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.entryTitle {
+    font-size: 14px;
+    font-weight: 550;
+    color: var(--ink);
+}
+
+.entryNote {
+    font-size: 12.5px;
+    color: var(--ink-2);
+}
+
+.entriesEmpty {
+    font-size: 12.5px;
     color: var(--ink-3);
     letter-spacing: 0.01em;
     user-select: none;
 }
 
-.captionValue {
-    color: var(--ink-2);
-    font-weight: 550;
-}
+/* ── Status ───────────────────────────────────────────────────────── */
 
 .status {
     min-height: 16px;
