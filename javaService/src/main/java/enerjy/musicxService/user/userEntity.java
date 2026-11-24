@@ -33,6 +33,7 @@ public class userEntity {
     @Column(length = 255)
     private String name;
 
+
     @Column(length = 255)
     private String nickname;
 }

@@ -31,7 +31,7 @@ public class MusicxBot extends TelegramLongPollingBot {
         if (!update.hasMessage()) return;
         producer.send(new MusicxEvent(
                 "LESSON_CREATED",
-                update.getMessage().getChatId(),
+                update.getMessage().getFrom().getId(),
                 update.getMessage().getText()
         ));
     }
