@@ -5,7 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.time.Duration;
 
@@ -37,8 +37,16 @@ public class OpenRouterClient {
                     .body(request)
                     .retrieve()
                     .body(ChatRequest.Response.class);
-        } catch (RestClientException e) {
-            throw new LlmRequestException("openrouter call failed", e);
+        } catch (RestClientResponseException e) {
+            // Тело ответа провайдера — единственный способ понять причину.
+            String body = e.getResponseBodyAsString();
+            if (body != null && body.length() > 500) body = body.substring(0, 500);
+            throw new LlmRequestException(
+                    "openrouter HTTP " + e.getStatusCode().value() + ": " + body, e);
+        } catch (Exception e) {
+            throw new LlmRequestException(
+                    "openrouter call failed: " + e.getClass().getSimpleName()
+                            + ": " + e.getMessage(), e);
         }
     }
 }
