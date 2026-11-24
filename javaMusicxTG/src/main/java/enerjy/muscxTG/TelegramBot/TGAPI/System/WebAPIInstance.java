@@ -9,7 +9,7 @@ public class WebAPIInstance {
     private final RestTemplate restTemplate;
     private final String telegramApiUrl;
 
-    public WebAPIInstance(RestTemplate restTemplate, @Value("${bot.token)") String botToken) {
+    public WebAPIInstance(RestTemplate restTemplate, @Value("${bot.token}") String botToken) {
         this.restTemplate = restTemplate;
         telegramApiUrl = "https://api.telegram.org/bot" + botToken + "/";
     }
