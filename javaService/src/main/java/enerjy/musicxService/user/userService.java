@@ -83,6 +83,22 @@ public class userService {
         return userRepository.findByUserId(userId);
     }
 
+    /**
+     * Находит или создаёт пользователя по telegram_id.
+     *
+     * Отдельный метод, чтобы вызывающий код не знал про провайдеров:
+     * для календаря важно только «дай мне пользователя с этим telegram_id».
+     */
+    @Transactional
+    public userEntity upsertByTelegramId(long telegramId) {
+        return upsertByIdentity(
+                AuthProvider.TELEGRAM,
+                String.valueOf(telegramId),
+                null,
+                null
+        );
+    }
+
     public List<userEntity> findAll() {
         return userRepository.findAll();
     }

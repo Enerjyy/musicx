@@ -2,6 +2,7 @@ package enerjy.musicxService.Kafka.Listener;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import enerjy.musicxService.Kafka.DTO.MusicxEvent;
+import enerjy.musicxService.Logic.schedule.ScheduleException;
 import enerjy.musicxService.Logic.schedule.handleSchedule;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
@@ -17,19 +18,26 @@ public class MusicxEventListener {
         this.handleSchedule = handleSchedule;
     }
 
-    @KafkaListener(topics = MusicxEvents.TOPIC, groupId = "musicx-service")
+    @KafkaListener(topics = "musicx-events", groupId = "musicx-service")
     public void handle(String json) {
+        MusicxEvent event;
         try {
-            MusicxEvent event = objectMapper.readValue(json, MusicxEvent.class);
-            System.out.println("musicx event: " + event);
-            handleSchedule.handleNewSchedule(event.payload(), event.telegramId());
+            event = objectMapper.readValue(json, MusicxEvent.class);
         } catch (Exception e) {
-            System.err.println("cannot parse musicx event: " + json);
+            System.err.println("cannot parse event json: " + e.getMessage());
+            return;
+        }
+
+        try {
+            handleSchedule.handleNewSchedule(event.payload(), event.telegramId());
+            System.out.println("schedule saved for telegramId=" + event.telegramId());
+        } catch (ScheduleException e) {
+            System.err.println("schedule rejected for telegramId="
+                    + event.telegramId() + ": " + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("schedule failed for telegramId="
+                    + event.telegramId() + ": " + e.getClass().getSimpleName()
+                    + ": " + e.getMessage());
         }
     }
-}
-
-final class MusicxEvents {
-    static final String TOPIC = "musicx-events";
-    private MusicxEvents() {}
 }

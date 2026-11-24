@@ -1,7 +1,6 @@
 package enerjy.musicxService.user;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -15,20 +14,18 @@ public class userSchedules {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long sceduleId;
 
-    @NotNull
+    @Column(nullable = false)
     private Long userId;
 
-    @NotNull
-    private String title;
-
-    @NotNull
-    private String note;
-
-    @NotNull
+    @Column(nullable = false)
     private LocalDate date;
 
-    @NotNull
+    @Column(nullable = false)
     private LocalTime time;
 
+    @Column(length = 200)
+    private String title;
 
+    @Column(length = 255)
+    private String note;
 }
