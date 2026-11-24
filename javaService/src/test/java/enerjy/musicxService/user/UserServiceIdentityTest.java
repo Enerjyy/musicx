@@ -29,6 +29,9 @@ class UserServiceIdentityTest {
     @Autowired
     private userIdentityRepo identityRepository;
 
+    @Autowired
+    private userSchedulesRepo schedulesRepo;
+
     @Test
     void createsUserAndIdentityOnFirstLogin() {
         userEntity user = userService.upsertByIdentity(
@@ -102,5 +105,47 @@ class UserServiceIdentityTest {
         assertThatThrownBy(() -> userService.upsertByIdentity(
                 AuthProvider.TELEGRAM, null, "Name", "nick"))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void countSchedulesReturnsZeroForNewUser() {
+        userEntity user = userService.upsertByIdentity(AuthProvider.TELEGRAM, "900", "Test", "test");
+
+        assertThat(userService.countSchedules(user.getUserId())).isZero();
+    }
+
+    @Test
+    void countSchedulesIncrementsAfterAddingEntries() {
+        userEntity user = userService.upsertByIdentity(AuthProvider.TELEGRAM, "901", "Test", "test");
+
+        var e1 = new userSchedules();
+        e1.setUserId(user.getUserId());
+        e1.setDate(java.time.LocalDate.now());
+        e1.setTime(java.time.LocalTime.now());
+        e1.setTitle("t1");
+        e1.setNote("n1");
+        schedulesRepo.save(e1);
+
+        var e2 = new userSchedules();
+        e2.setUserId(user.getUserId());
+        e2.setDate(java.time.LocalDate.now());
+        e2.setTime(java.time.LocalTime.now());
+        e2.setTitle("t2");
+        e2.setNote("n2");
+        schedulesRepo.save(e2);
+
+        assertThat(userService.countSchedules(user.getUserId())).isEqualTo(2);
+    }
+
+    @Test
+    void upsertByIdentityDoesNotOverwriteNameNicknameWithNull() {
+        userEntity first = userService.upsertByIdentity(AuthProvider.TELEGRAM, "902", "Original", "orig");
+
+        // Второй вызов с null name/nickname (как делает бот) — не должен стирать профиль
+        userEntity second = userService.upsertByIdentity(AuthProvider.TELEGRAM, "902", null, null);
+
+        assertThat(second.getUserId()).isEqualTo(first.getUserId());
+        assertThat(second.getName()).isEqualTo("Original");
+        assertThat(second.getNickname()).isEqualTo("orig");
     }
 }

@@ -255,7 +255,6 @@ class AuthFlowIntegrationTest {
 
     @Test
     void tokenFromAnotherUserDoesNotLeakData() throws Exception {
-        // Два пользователя логинятся; каждый видит только свой календарь.
         String tokenA = login(buildInitData(777L, "A", "user_a"));
         String tokenB = login(buildInitData(888L, "B", "user_b"));
 
@@ -270,5 +269,22 @@ class AuthFlowIntegrationTest {
                         .param("month", "11")
                         .header("Authorization", "Bearer " + tokenB))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void debugMeEndpointShowsUserAndIdentity() throws Exception {
+        String token = login(buildInitData(999L, "Debug", "debug_user"));
+
+        mockMvc.perform(get("/auth/debug/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.userId").isNumber())
+                .andExpect(jsonPath("$.provider").value("TELEGRAM"))
+                .andExpect(jsonPath("$.user.firstName").value("Debug"))
+                .andExpect(jsonPath("$.user.username").value("debug_user"))
+                .andExpect(jsonPath("$.identities").isArray())
+                .andExpect(jsonPath("$.identities[0].provider").value("TELEGRAM"))
+                .andExpect(jsonPath("$.identities[0].providerUserId").value("999"))
+                .andExpect(jsonPath("$.scheduleCount").value(0));
     }
 }

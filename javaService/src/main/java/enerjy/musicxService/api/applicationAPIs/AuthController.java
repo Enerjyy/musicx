@@ -7,16 +7,23 @@ import enerjy.musicxService.security.AuthProvider;
 import enerjy.musicxService.security.JwtService;
 import enerjy.musicxService.security.TGDataValidation;
 import enerjy.musicxService.security.TelegramUser;
+import enerjy.musicxService.user.UserPrincipal;
 import enerjy.musicxService.user.userEntity;
+import enerjy.musicxService.user.userIdentityEntity;
 import enerjy.musicxService.user.userService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * Обмен данных, подтверждённых провайдером, на собственный токен сессии.
@@ -58,10 +65,8 @@ public class AuthController {
 
     @PostMapping("/telegram")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody AuthRequest request) {
-        // Бросает InitDataException при плохой подписи — обработает GlobalExceptionHandler.
         TelegramUser telegramUser = validation.validate(request.initData(), maxAgeSeconds);
 
-        // Провайдер — TELEGRAM, идентификатор — telegram_id из подписанных данных.
         userEntity user = userService.upsertByIdentity(
                 AuthProvider.TELEGRAM,
                 String.valueOf(telegramUser.id()),
@@ -73,5 +78,27 @@ public class AuthController {
 
         return ResponseEntity.status(HttpStatus.OK)
                 .body(new AuthResponse(token, jwtService.getTtlSeconds(), UserDto.from(user)));
+    }
+
+    @GetMapping("/debug/me")
+    public ResponseEntity<Map<String, Object>> debugMe(@RequestAttribute("principal") UserPrincipal principal) {
+        long userId = principal.userId();
+        userEntity user = userService.findById(userId).orElse(null);
+        List<userIdentityEntity> identities = userService.findIdentities(userId);
+        long scheduleCount = userService.countSchedules(userId);
+
+        return ResponseEntity.ok(Map.of(
+                "userId", userId,
+                "provider", principal.provider().name(),
+                "user", user != null ? Map.of(
+                        "firstName", user.getName(),
+                        "username", user.getNickname()
+                ) : null,
+                "identities", identities.stream().map(i -> Map.of(
+                        "provider", i.getProvider().name(),
+                        "providerUserId", i.getProviderUserId()
+                )).toList(),
+                "scheduleCount", scheduleCount
+        ));
     }
 }

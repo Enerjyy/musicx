@@ -23,10 +23,12 @@ public class userService {
 
     private final userRepo userRepository;
     private final userIdentityRepo identityRepository;
+    private final userSchedulesRepo schedulesRepo;
 
-    public userService(userRepo userRepository, userIdentityRepo identityRepository) {
+    public userService(userRepo userRepository, userIdentityRepo identityRepository, userSchedulesRepo schedulesRepo) {
         this.userRepository = userRepository;
         this.identityRepository = identityRepository;
+        this.schedulesRepo = schedulesRepo;
     }
 
     /**
@@ -60,8 +62,12 @@ public class userService {
                     .orElseThrow(() -> new IllegalStateException(
                             "identity points to missing user: " + existingIdentity.get().getUserId()));
 
-            user.setName(name);
-            user.setNickname(nickname);
+            if (name != null) {
+                user.setName(name);
+            }
+            if (nickname != null) {
+                user.setNickname(nickname);
+            }
             return userRepository.save(user);
         }
 
@@ -106,5 +112,9 @@ public class userService {
     /** Все способы входа пользователя — для отладки и отображения в профиле. */
     public List<userIdentityEntity> findIdentities(long userId) {
         return identityRepository.findByUserId(userId);
+    }
+
+    public long countSchedules(long userId) {
+        return schedulesRepo.countByUserId(userId);
     }
 }

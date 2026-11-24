@@ -13,4 +13,6 @@ public interface userSchedulesRepo extends JpaRepository<userSchedules, Long> {
             LocalDate from,
             LocalDate to
     );
+
+    long countByUserId(Long userId);
 }
