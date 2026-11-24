@@ -2,6 +2,8 @@ package enerjy.musicxService.api.applicationAPIs;
 
 import enerjy.musicxService.api.dto.CalendarEntryDto;
 import enerjy.musicxService.user.UserPrincipal;
+import enerjy.musicxService.user.userSchedules;
+import enerjy.musicxService.user.userSchedulesRepo;
 import enerjy.musicxService.user.userService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,9 +33,11 @@ import java.util.List;
 public class CalendarController {
 
     private final userService userService;
+    private final userSchedulesRepo schedulesRepo;
 
-    public CalendarController(userService userService) {
+    public CalendarController(userService userService, userSchedulesRepo schedulesRepo) {
         this.userService = userService;
+        this.schedulesRepo = schedulesRepo;
     }
 
     @GetMapping
@@ -50,7 +55,26 @@ public class CalendarController {
             return ResponseEntity.status(401).build();
         }
 
-        // Заглушка: реальная выборка появится вместе с таблицей записей.
-        return ResponseEntity.ok(new ArrayList<>());
+        var monthRange = YearMonth.of(year, month);
+        var entries = schedulesRepo.findByUserIdAndDateBetweenOrderByTimeAsc(
+                principal.userId(),
+                monthRange.atDay(1),
+                monthRange.atEndOfMonth()
+        );
+
+        var result = entries.stream()
+                .map(CalendarController::toDto)
+                .toList();
+
+        return ResponseEntity.ok(result);
+    }
+
+    private static CalendarEntryDto toDto(userSchedules entry) {
+        return new CalendarEntryDto(
+                entry.getDate().toString(),
+                entry.getTime() == null ? null : entry.getTime().toString(),
+                entry.getTitle(),
+                entry.getNote()
+        );
     }
 }

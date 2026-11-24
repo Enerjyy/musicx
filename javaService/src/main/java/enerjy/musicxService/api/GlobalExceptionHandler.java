@@ -1,6 +1,7 @@
 package enerjy.musicxService.api;
 
 import enerjy.musicxService.LlmRequests.LlmRequestException;
+import enerjy.musicxService.Logic.schedule.ScheduleException;
 import enerjy.musicxService.security.InitDataException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -44,5 +45,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleLlm(LlmRequestException e) {
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                 .body(Map.of("error", "ai unavailable"));
+    }
+
+    @ExceptionHandler(ScheduleException.class)
+    public ResponseEntity<Map<String, String>> handleSchedule(ScheduleException e) {
+        return ResponseEntity.badRequest()
+                .body(Map.of("error", "schedule incomplete"));
     }
 }

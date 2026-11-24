@@ -19,6 +19,14 @@ public class handleSchedule {
 
     public void handleNewSchedule(String text, Long userId) {
         LessonParseResult result = lessonParser.parse(text);
+
+        if (result.date() == null) {
+            throw new ScheduleException("date is required");
+        }
+        if (result.time() == null) {
+            throw new ScheduleException("time is required");
+        }
+
         userSchedules userSchedules = new userSchedules();
         userSchedules.setUserId(userId);
         userSchedules.setDate(result.date());
