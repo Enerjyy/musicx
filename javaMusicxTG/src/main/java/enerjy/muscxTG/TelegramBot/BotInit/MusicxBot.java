@@ -30,6 +30,11 @@ public class MusicxBot extends TelegramLongPollingBot {
     }
 
     @Override
+    public String getBotToken() {
+        return botToken;
+    }
+
+    @Override
     public void onUpdateReceived(Update update) {
         if (!update.hasMessage()) return;
         producer.send(new MusicxEvent(
