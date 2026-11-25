@@ -10,13 +10,39 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 public class LessonParser {
 
-    private static final int MAX_TOKENS = 512;
+    private static final int MAX_TOKENS = 1024;
+
+    private static final List<DateTimeFormatter> DATE_FORMATS = List.of(
+            DateTimeFormatter.ISO_LOCAL_DATE,
+            DateTimeFormatter.ofPattern("d.M.yyyy", Locale.ROOT),
+            DateTimeFormatter.ofPattern("d/M/yyyy", Locale.ROOT),
+            DateTimeFormatter.ofPattern("d-M-yyyy", Locale.ROOT),
+            DateTimeFormatter.ofPattern("M/d/yyyy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("yyyy/M/d", Locale.ROOT),
+            DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.of("ru")),
+            DateTimeFormatter.ofPattern("d MMM yyyy", Locale.of("ru")),
+            DateTimeFormatter.ofPattern("MMMM d, yyyy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("MMMM d yyyy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
+    );
+
+    private static final List<DateTimeFormatter> TIME_FORMATS = List.of(
+            DateTimeFormatter.ISO_LOCAL_TIME,
+            DateTimeFormatter.ofPattern("H:mm", Locale.ROOT),
+            DateTimeFormatter.ofPattern("H:mm:ss", Locale.ROOT),
+            DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH),
+            DateTimeFormatter.ofPattern("h:mm:ss a", Locale.ENGLISH)
+    );
 
     private final OpenRouterClient client;
     private final ObjectMapper mapper;
@@ -61,13 +87,10 @@ public class LessonParser {
         }
 
         var choice = response.choices().get(0);
-        if (!"stop".equals(choice.finishReason())) {
-            throw new LlmRequestException("model stopped early: " + choice.finishReason());
-        }
-
         var content = choice.message() == null ? null : choice.message().content();
         if (content == null || content.isBlank()) {
-            throw new LlmRequestException("model returned empty content");
+            throw new LlmRequestException(
+                    "model returned empty content, finish_reason=" + choice.finishReason());
         }
 
         return toResult(parseObject(content));
@@ -104,23 +127,54 @@ public class LessonParser {
         );
     }
 
-    private static LocalDate parseDate(String raw) {
+    static LocalDate parseDate(String raw) {
         if (raw == null) return null;
-        try {
-            return LocalDate.parse(raw);
-        } catch (DateTimeParseException e) {
-            throw new LlmRequestException("bad date from model: " + raw, e);
+        String value = normalizeDate(raw);
+        for (DateTimeFormatter formatter : DATE_FORMATS) {
+            try {
+                return LocalDate.parse(value, formatter);
+            } catch (DateTimeParseException ignored) {
+            }
         }
+        throw new LlmRequestException("bad date from model: " + raw);
     }
 
-    private static LocalTime parseTime(String raw) {
+    static LocalTime parseTime(String raw) {
         if (raw == null) return null;
-        // Пускаем и HH:mm, и HH:mm:ss
-        try {
-            return LocalTime.parse(raw.length() == 5 ? raw + ":00" : raw);
-        } catch (DateTimeParseException e) {
-            throw new LlmRequestException("bad time from model: " + raw, e);
+        for (String candidate : normalizeTime(raw)) {
+            for (DateTimeFormatter formatter : TIME_FORMATS) {
+                try {
+                    return LocalTime.parse(candidate, formatter);
+                } catch (DateTimeParseException ignored) {
+                }
+            }
         }
+        throw new LlmRequestException("bad time from model: " + raw);
+    }
+
+    private static String unquote(String raw) {
+        String value = raw.trim();
+        if (value.length() >= 2 && value.charAt(0) == '"' && value.charAt(value.length() - 1) == '"') {
+            return value.substring(1, value.length() - 1).trim();
+        }
+        return value;
+    }
+
+    private static String normalizeDate(String raw) {
+        String value = unquote(raw);
+        value = value.replaceAll("(?i),?\\s+\\d{1,2}:\\d{2}(:\\d{2})?.*$", "");
+        value = value.replaceAll("(?i)\\s*(года|г\\.|г|year)\\s*\\.?$", "");
+        int separator = value.indexOf('T');
+        if (separator > 0) {
+            value = value.substring(0, separator);
+        }
+        return value.trim();
+    }
+
+    private static List<String> normalizeTime(String raw) {
+        String value = unquote(raw);
+        value = value.replaceAll("(?i)\\s*(мск|msk|utc(\\s*[+-]\\d{1,2}(:\\d{2})?)?)\\s*$", "");
+        return List.of(value, value.replaceAll("\\s.*$", ""), value.replace('.', ':'));
     }
 
     private static String text(JsonNode node, String field) {
