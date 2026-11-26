@@ -1,0 +1,10 @@
+{
+  "type": "SEND_MESSAGE",
+  "eventId": "33333333-3333-4333-8333-333333333333",
+  "schemaVersion": 1,
+  "occurredAt": "2026-11-26T10:00:05Z",
+  "channel": "TELEGRAM",
+  "conversationId": "123456789",
+  "commandId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "text": "Запись создана: урок гитары, 27.11 15:00–16:00"
+}

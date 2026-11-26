@@ -1,0 +1,10 @@
+{
+  "type": "SHOW_PROGRESS",
+  "eventId": "22222222-2222-4222-8222-222222222222",
+  "schemaVersion": 1,
+  "occurredAt": "2026-11-26T10:00:01Z",
+  "channel": "TELEGRAM",
+  "conversationId": "123456789",
+  "draftRef": "987654321",
+  "text": "Разбираю запрос…"
+}

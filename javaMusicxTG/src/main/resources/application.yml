@@ -13,3 +13,13 @@ spring:
 bot:
   token: ${BOT_TOKEN:123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi}
   name: ${BOT_NAME:musicx_test_bot}
+
+app:
+  telegram:
+    # Таймауты HTTP-вызовов Bot API (ApiConfig).
+    connect-timeout-seconds: ${TELEGRAM_CONNECT_TIMEOUT_SECONDS:5}
+    read-timeout-seconds: ${TELEGRAM_READ_TIMEOUT_SECONDS:12}
+    # Черновик статуса в Telegram живёт ~30 с: более старый прогресс отбрасывается.
+    progress-ttl: ${TELEGRAM_PROGRESS_TTL:PT30S}
+    # Ёмкость LRU-дедупликации команд по commandId (best effort).
+    dedup-capacity: ${TELEGRAM_DEDUP_CAPACITY:10000}

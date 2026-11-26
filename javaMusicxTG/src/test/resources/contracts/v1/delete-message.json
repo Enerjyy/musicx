@@ -1,0 +1,10 @@
+{
+  "type": "DELETE_MESSAGE",
+  "eventId": "44444444-4444-4444-8444-444444444444",
+  "schemaVersion": 1,
+  "occurredAt": "2026-11-26T10:00:36Z",
+  "channel": "TELEGRAM",
+  "conversationId": "123456789",
+  "commandId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  "externalMessageId": "555"
+}
