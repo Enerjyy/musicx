@@ -6,8 +6,11 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.kafka.annotation.EnableKafka;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
+/** Планировщик нужен напоминаниям и отложенным удаления (@Scheduled). */
 @EnableKafka
+@EnableScheduling
 @SpringBootApplication
 public class JavaService {
 
