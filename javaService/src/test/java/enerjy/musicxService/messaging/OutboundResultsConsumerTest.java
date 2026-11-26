@@ -10,6 +10,10 @@ import enerjy.musicxService.user.CommandJournalEntry;
 import enerjy.musicxService.user.CommandJournalRepo;
 import enerjy.musicxService.user.CommandPurpose;
 import enerjy.musicxService.user.DeletionStatus;
+import enerjy.musicxService.user.Reminder;
+import enerjy.musicxService.user.ReminderKind;
+import enerjy.musicxService.user.ReminderRepo;
+import enerjy.musicxService.user.ReminderStatus;
 import enerjy.musicxService.user.ScheduledDeletion;
 import enerjy.musicxService.user.ScheduledDeletionRepo;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,6 +56,9 @@ class OutboundResultsConsumerTest {
     private ScheduledDeletionRepo deletions;
 
     @Mock
+    private ReminderRepo reminders;
+
+    @Mock
     private Acknowledgment ack;
 
     private OutboundResultsConsumer consumer;
@@ -59,8 +66,8 @@ class OutboundResultsConsumerTest {
     @BeforeEach
     void setUp() {
         consumer = new OutboundResultsConsumer(
-                mapper, commandJournal, deletions, stubTransactions(),
-                Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofSeconds(30), Duration.ofSeconds(60));
+                mapper, commandJournal, deletions, reminders, stubTransactions(),
+                Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofSeconds(30), Duration.ofSeconds(60), 3);
     }
 
     @Test
@@ -213,6 +220,83 @@ class OutboundResultsConsumerTest {
         verify(ack).acknowledge();
     }
 
+    // --- ветки статусов напоминаний (Шаг 8) ---
+
+    @Test
+    void reminderSentMarksReminderAsSent() throws Exception {
+        var entry = entry(CommandPurpose.REMINDER, 88L, CommandDeliveryStatus.PENDING);
+        when(commandJournal.findById("cmd-1")).thenReturn(Optional.of(entry));
+        var reminder = reminder(ReminderStatus.SENDING, 1);
+        when(reminders.findById(88L)).thenReturn(Optional.of(reminder));
+
+        consumer.handle(json(DeliveryStatus.SENT, "555", null), ack);
+
+        assertThat(reminder.getStatus()).isEqualTo(ReminderStatus.SENT);
+        assertThat(reminder.getSentAt()).isEqualTo(NOW);
+        verify(reminders).save(reminder);
+    }
+
+    @Test
+    void reminderBlockedIsPermanent() throws Exception {
+        var entry = entry(CommandPurpose.REMINDER, 88L, CommandDeliveryStatus.PENDING);
+        when(commandJournal.findById("cmd-1")).thenReturn(Optional.of(entry));
+        var reminder = reminder(ReminderStatus.SENDING, 1);
+        when(reminders.findById(88L)).thenReturn(Optional.of(reminder));
+
+        consumer.handle(json(DeliveryStatus.BLOCKED, null, null), ack);
+
+        assertThat(reminder.getStatus()).isEqualTo(ReminderStatus.FAILED_PERMANENT);
+    }
+
+    @Test
+    void reminderFailedIsFailed() throws Exception {
+        var entry = entry(CommandPurpose.REMINDER, 88L, CommandDeliveryStatus.PENDING);
+        when(commandJournal.findById("cmd-1")).thenReturn(Optional.of(entry));
+        var reminder = reminder(ReminderStatus.SENDING, 1);
+        when(reminders.findById(88L)).thenReturn(Optional.of(reminder));
+
+        consumer.handle(json(DeliveryStatus.FAILED, null, null), ack);
+
+        assertThat(reminder.getStatus()).isEqualTo(ReminderStatus.FAILED);
+    }
+
+    @Test
+    void reminderTransientFailureUnderLimitReturnsToPending() throws Exception {
+        var entry = entry(CommandPurpose.REMINDER, 88L, CommandDeliveryStatus.PENDING);
+        when(commandJournal.findById("cmd-1")).thenReturn(Optional.of(entry));
+        var reminder = reminder(ReminderStatus.SENDING, 1);
+        when(reminders.findById(88L)).thenReturn(Optional.of(reminder));
+
+        consumer.handle(json(DeliveryStatus.TRANSIENT_FAILURE, null, null), ack);
+
+        assertThat(reminder.getStatus()).isEqualTo(ReminderStatus.PENDING);
+        assertThat(reminder.getClaimedAt()).isNull();
+    }
+
+    @Test
+    void reminderRateLimitedUnderLimitReturnsToPending() throws Exception {
+        var entry = entry(CommandPurpose.REMINDER, 88L, CommandDeliveryStatus.PENDING);
+        when(commandJournal.findById("cmd-1")).thenReturn(Optional.of(entry));
+        var reminder = reminder(ReminderStatus.SENDING, 1);
+        when(reminders.findById(88L)).thenReturn(Optional.of(reminder));
+
+        consumer.handle(json(DeliveryStatus.RATE_LIMITED, null, 17), ack);
+
+        assertThat(reminder.getStatus()).isEqualTo(ReminderStatus.PENDING);
+    }
+
+    @Test
+    void reminderTransientFailureOverLimitFails() throws Exception {
+        var entry = entry(CommandPurpose.REMINDER, 88L, CommandDeliveryStatus.PENDING);
+        when(commandJournal.findById("cmd-1")).thenReturn(Optional.of(entry));
+        var reminder = reminder(ReminderStatus.SENDING, 3);
+        when(reminders.findById(88L)).thenReturn(Optional.of(reminder));
+
+        consumer.handle(json(DeliveryStatus.TRANSIENT_FAILURE, null, null), ack);
+
+        assertThat(reminder.getStatus()).isEqualTo(ReminderStatus.FAILED);
+    }
+
     @Test
     void garbageJsonIsPropagatedAndNotAcked() {
         assertThatThrownBy(() -> consumer.handle("{bebebe}", ack))
@@ -252,6 +336,18 @@ class OutboundResultsConsumerTest {
         task.setAttempts(1);
         task.setCreatedAt(NOW.minusSeconds(35));
         return task;
+    }
+
+    private static Reminder reminder(ReminderStatus status, int attempts) {
+        var reminder = new Reminder();
+        reminder.setId(88L);
+        reminder.setScheduleId(11L);
+        reminder.setKind(ReminderKind.T_MINUS_3H);
+        reminder.setRemindAt(NOW.minusSeconds(300));
+        reminder.setStatus(status);
+        reminder.setAttempts(attempts);
+        reminder.setClaimedAt(NOW.minusSeconds(10));
+        return reminder;
     }
 
     private static TransactionTemplate stubTransactions() {

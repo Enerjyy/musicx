@@ -48,6 +48,28 @@ class MessageTemplatesTest {
         assertThat(MessageTemplates.duration(120)).isEqualTo("2 ч");
     }
 
+    @Test
+    void reminderTextContainsOffsetTitleAndLocalTime() {
+        var schedule = schedule();
+        schedule.setTitle("Урок гитары");
+        schedule.setStartAt(Instant.parse("2026-11-27T12:00:00Z")); // 15:00 МСК
+        schedule.setTimezone("Europe/Moscow");
+
+        assertThat(MessageTemplates.reminder(schedule, java.time.Duration.ofHours(3)))
+                .isEqualTo("Напоминание: через 3 ч — «Урок гитары» 27.11.2026 15:00");
+    }
+
+    @Test
+    void reminderTextWithoutTitleStillShowsTime() {
+        var schedule = schedule();
+        schedule.setTitle(null);
+        schedule.setStartAt(Instant.parse("2026-11-27T12:00:00Z"));
+        schedule.setTimezone("Europe/Moscow");
+
+        assertThat(MessageTemplates.reminder(schedule, java.time.Duration.ofMinutes(90)))
+                .isEqualTo("Напоминание: через 1 ч 30 мин — 27.11.2026 15:00");
+    }
+
     private static userSchedules schedule() {
         return new userSchedules();
     }

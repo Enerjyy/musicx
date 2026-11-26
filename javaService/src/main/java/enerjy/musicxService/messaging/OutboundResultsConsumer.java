@@ -11,6 +11,9 @@ import enerjy.musicxService.user.CommandJournalEntry;
 import enerjy.musicxService.user.CommandJournalRepo;
 import enerjy.musicxService.user.CommandPurpose;
 import enerjy.musicxService.user.DeletionStatus;
+import enerjy.musicxService.user.Reminder;
+import enerjy.musicxService.user.ReminderRepo;
+import enerjy.musicxService.user.ReminderStatus;
 import enerjy.musicxService.user.ScheduledDeletion;
 import enerjy.musicxService.user.ScheduledDeletionRepo;
 import org.slf4j.Logger;
@@ -39,7 +42,9 @@ import java.time.Instant;
  *       ({@link ScheduledDeletion}) через {@code app.deletions.delay};</li>
  *   <li>DELETE_CONFIRMATION — обновляет задачу удаления: успех/ALREADY_GONE
  *       → DONE, временный сбой → повтор позже, BLOCKED → FAILED;</li>
- *   <li>REMINDER — обрабатывается планировщиком напоминаний (Шаг 8).</li>
+ *   <li>REMINDER — итог отправки напоминания: SENT/ALREADY_GONE → SENT,
+ *       BLOCKED → FAILED_PERMANENT, FAILED → FAILED, временный сбой →
+ *       обратно в PENDING до лимита попыток, затем FAILED.</li>
  * </ul>
  *
  * Автоудаление применяется только к подтверждению создания записи:
@@ -53,40 +58,48 @@ public class OutboundResultsConsumer {
     private final ObjectMapper objectMapper;
     private final CommandJournalRepo commandJournal;
     private final ScheduledDeletionRepo deletions;
+    private final ReminderRepo reminders;
     private final TransactionTemplate transactions;
     private final Clock clock;
     private final Duration deletionDelay;
     private final Duration deletionRetryDelay;
+    private final int reminderMaxAttempts;
 
     @Autowired
     public OutboundResultsConsumer(
             ObjectMapper objectMapper,
             CommandJournalRepo commandJournal,
             ScheduledDeletionRepo deletions,
+            ReminderRepo reminders,
             TransactionTemplate transactions,
             @Value("${app.deletions.delay:PT30S}") Duration deletionDelay,
-            @Value("${app.deletions.retry-delay:PT60S}") Duration deletionRetryDelay
+            @Value("${app.deletions.retry-delay:PT60S}") Duration deletionRetryDelay,
+            @Value("${app.reminders.max-attempts:3}") int reminderMaxAttempts
     ) {
-        this(objectMapper, commandJournal, deletions, transactions,
-                Clock.systemUTC(), deletionDelay, deletionRetryDelay);
+        this(objectMapper, commandJournal, deletions, reminders, transactions,
+                Clock.systemUTC(), deletionDelay, deletionRetryDelay, reminderMaxAttempts);
     }
 
     OutboundResultsConsumer(
             ObjectMapper objectMapper,
             CommandJournalRepo commandJournal,
             ScheduledDeletionRepo deletions,
+            ReminderRepo reminders,
             TransactionTemplate transactions,
             Clock clock,
             Duration deletionDelay,
-            Duration deletionRetryDelay
+            Duration deletionRetryDelay,
+            int reminderMaxAttempts
     ) {
         this.objectMapper = objectMapper;
         this.commandJournal = commandJournal;
         this.deletions = deletions;
+        this.reminders = reminders;
         this.transactions = transactions;
         this.clock = clock;
         this.deletionDelay = deletionDelay;
         this.deletionRetryDelay = deletionRetryDelay;
+        this.reminderMaxAttempts = reminderMaxAttempts;
     }
 
     @KafkaListener(topics = Topics.OUTBOUND_RESULTS, containerFactory = ContractKafkaConfig.FACTORY)
@@ -126,9 +139,7 @@ public class OutboundResultsConsumer {
         switch (entry.getPurpose()) {
             case CONFIRM_SCHEDULE -> onConfirmationResult(result, entry);
             case DELETE_CONFIRMATION -> onDeletionResult(result, entry);
-            case REMINDER -> {
-                // Планировщик напоминаний (Шаг 8) закрывает свой статус.
-            }
+            case REMINDER -> onReminderResult(result, entry);
         }
     }
 
@@ -176,6 +187,31 @@ public class OutboundResultsConsumer {
                 case BLOCKED, FAILED -> task.setStatus(DeletionStatus.FAILED);
             }
             deletions.save(task);
+        });
+    }
+
+    private void onReminderResult(DeliveryResult result, CommandJournalEntry entry) {
+        if (entry.getRelatedId() == null) {
+            return;
+        }
+        reminders.findById(entry.getRelatedId()).ifPresent(reminder -> {
+            switch (result.status()) {
+                case SENT, ALREADY_GONE -> {
+                    reminder.setStatus(ReminderStatus.SENT);
+                    reminder.setSentAt(Instant.now(clock));
+                }
+                case BLOCKED -> reminder.setStatus(ReminderStatus.FAILED_PERMANENT);
+                case FAILED -> reminder.setStatus(ReminderStatus.FAILED);
+                case RATE_LIMITED, TRANSIENT_FAILURE -> {
+                    if (reminder.getAttempts() >= reminderMaxAttempts) {
+                        reminder.setStatus(ReminderStatus.FAILED);
+                    } else {
+                        reminder.setStatus(ReminderStatus.PENDING);
+                        reminder.setClaimedAt(null);
+                    }
+                }
+            }
+            reminders.save(reminder);
         });
     }
 

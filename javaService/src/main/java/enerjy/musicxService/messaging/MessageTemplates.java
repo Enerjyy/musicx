@@ -46,6 +46,24 @@ public final class MessageTemplates {
         return text.toString();
     }
 
+    /** Напоминание: за сколько до начала, название и локальное время события. */
+    public static String reminder(userSchedules schedule, Duration offset) {
+        var zone = schedule.getTimezone() != null
+                ? ZoneId.of(schedule.getTimezone())
+                : java.time.ZoneOffset.UTC;
+        var text = new StringBuilder("Напоминание: ");
+        long minutes = offset.toMinutes();
+        text.append(minutes > 0 ? "через " + duration(minutes) + " — " : "уже скоро — ");
+        if (schedule.getTitle() != null) {
+            text.append('«').append(schedule.getTitle()).append("» ");
+        }
+        text.append(schedule.getStartAt().atZone(zone).format(DATE_TIME));
+        if (schedule.getNote() != null) {
+            text.append("\nОписание: ").append(schedule.getNote());
+        }
+        return text.toString();
+    }
+
     static String duration(long minutes) {
         long hours = minutes / 60;
         long rest = minutes % 60;
