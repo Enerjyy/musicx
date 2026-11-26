@@ -5,11 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import enerjy.musicxService.LlmRequests.dto.ChatRequest;
 import enerjy.musicxService.LlmRequests.dto.LessonParseResult;
 import enerjy.musicxService.LlmRequests.prompts.LessonPrompts;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.List;
@@ -47,15 +50,23 @@ public class LessonParser {
     private final OpenRouterClient client;
     private final ObjectMapper mapper;
     private final String model;
+    private final Clock clock;
 
+    @Autowired
     public LessonParser(
             OpenRouterClient client,
             ObjectMapper mapper,
-            @Value("${openrouter.model}") String model
+            @Value("${openrouter.model}") String model,
+            @Value("${app.time-zone:Europe/Moscow}") String timeZone
     ) {
+        this(client, mapper, model, Clock.system(ZoneId.of(timeZone)));
+    }
+
+    LessonParser(OpenRouterClient client, ObjectMapper mapper, String model, Clock clock) {
         this.client = client;
         this.mapper = mapper;
         this.model = model;
+        this.clock = clock;
     }
 
     public LessonParseResult parse(String userText) {
@@ -66,7 +77,7 @@ public class LessonParser {
         var request = new ChatRequest(
                 model,
                 List.of(
-                        new ChatRequest.Message("system", LessonPrompts.SYSTEM),
+                        new ChatRequest.Message("system", LessonPrompts.system(LocalDate.now(clock))),
                         new ChatRequest.Message("user", userText)
                 ),
                 new ChatRequest.ResponseFormat(

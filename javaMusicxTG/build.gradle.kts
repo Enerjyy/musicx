@@ -23,6 +23,7 @@ dependencies {
 	implementation("org.telegram:telegrambots-spring-boot-starter:6.9.7.1")
 	implementation("org.springframework.boot:spring-boot-starter-web")
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
+	testImplementation("org.springframework.kafka:spring-kafka-test")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 

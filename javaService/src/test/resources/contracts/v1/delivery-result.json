@@ -1,0 +1,11 @@
+{
+  "type": "DELIVERY_RESULT",
+  "eventId": "55555555-5555-4555-8555-555555555555",
+  "schemaVersion": 1,
+  "occurredAt": "2026-11-26T10:00:06Z",
+  "channel": "TELEGRAM",
+  "conversationId": "123456789",
+  "commandId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "status": "SENT",
+  "externalMessageId": "555"
+}
