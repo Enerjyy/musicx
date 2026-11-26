@@ -55,10 +55,15 @@ jwt:
 openrouter:
   base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}
   api-key: ${OPENROUTER_API_KEY}
-  # DeepSeek V4.1 Flash: structured outputs, 1M контекст, ~$0.03/$0.20 за 1M.
+  # Основная и запасные модели парсинга записей: structured outputs, 1M контекст.
+  # deepseek/deepseek-v4.1-flash ~$0.05/$0.20 за 1M, qwen/qwen3.8-flash ~$0.15/$0.47.
   # Важно: в каталоге OpenRouter ID с суффиксом :free — у платного варианта
   # суффикса нет. ID без суффикса = платный, с суффиксом = бесплатный лимит.
-  model: ${OPENROUTER_MODEL:deepseek/deepseek-v4.1-flash-1017}
+  model: ${OPENROUTER_MODEL:deepseek/deepseek-v4.1-flash}
+  fallback-models: ${OPENROUTER_FALLBACK_MODELS:qwen/qwen3.8-flash}
+  # Одна попытка ограничена таймаутом HTTP; суммарный бюджет попыток ~25 с
+  # держит LlmEventParser, потому что черновик в Telegram живёт ~30 секунд.
+  attempt-timeout-seconds: ${OPENROUTER_ATTEMPT_TIMEOUT_SECONDS:12}
 
 ---
 # Профиль для тестов: свои значения, чтобы не требовать реальный .env.

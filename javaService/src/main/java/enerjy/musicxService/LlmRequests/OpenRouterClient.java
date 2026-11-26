@@ -16,11 +16,14 @@ public class OpenRouterClient {
 
     public OpenRouterClient(
             @Value("${openrouter.base-url}") String baseUrl,
-            @Value("${openrouter.api-key}") String apiKey
+            @Value("${openrouter.api-key}") String apiKey,
+            @Value("${openrouter.attempt-timeout-seconds:12}") long readTimeoutSeconds
     ) {
         var factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(5));
-        factory.setReadTimeout(Duration.ofSeconds(30));
+        // Одна попытка LLM ограничена этим таймаутом; суммарный бюджет всех
+        // попыток считает LlmEventParser, ориентируясь на TTL черновика Telegram.
+        factory.setReadTimeout(Duration.ofSeconds(readTimeoutSeconds));
 
         this.http = RestClient.builder()
                 .baseUrl(baseUrl)
