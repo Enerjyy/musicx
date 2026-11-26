@@ -29,13 +29,16 @@ class InboundMessageConsumerTest {
     private CreateScheduleUseCase useCase;
 
     @Mock
+    private TimezoneCommandHandler timezoneCommands;
+
+    @Mock
     private Acknowledgment ack;
 
     private InboundMessageConsumer consumer;
 
     @BeforeEach
     void setUp() {
-        consumer = new InboundMessageConsumer(new ObjectMapper(), useCase);
+        consumer = new InboundMessageConsumer(new ObjectMapper(), useCase, timezoneCommands);
     }
 
     @Test
@@ -52,6 +55,19 @@ class InboundMessageConsumerTest {
         assertThat(received.getValue().messageId()).isEqualTo("1001");
         assertThat(received.getValue().userRef()).isEqualTo("42");
         assertThat(received.getValue().progressRef()).isEqualTo("draft-1");
+        verify(ack).acknowledge();
+    }
+
+    /** Команда /timezone уходит в свой обработчик, а не в парсер расписаний. */
+    @Test
+    void timezoneCommandGoesToTimezoneHandler() throws Exception {
+        var message = IncomingMessage.create(
+                Channels.TELEGRAM, "42", "1002", "42", "/timezone Europe/Berlin", "ru", null);
+
+        consumer.handle(mapper.writeValueAsString(message), ack);
+
+        verify(timezoneCommands).handle(any());
+        verify(useCase, never()).handle(any());
         verify(ack).acknowledge();
     }
 

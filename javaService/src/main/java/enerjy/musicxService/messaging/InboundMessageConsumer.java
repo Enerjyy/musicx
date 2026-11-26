@@ -23,16 +23,26 @@ public class InboundMessageConsumer {
 
     private final ObjectMapper objectMapper;
     private final CreateScheduleUseCase createScheduleUseCase;
+    private final TimezoneCommandHandler timezoneCommands;
 
-    public InboundMessageConsumer(ObjectMapper objectMapper, CreateScheduleUseCase createScheduleUseCase) {
+    public InboundMessageConsumer(
+            ObjectMapper objectMapper,
+            CreateScheduleUseCase createScheduleUseCase,
+            TimezoneCommandHandler timezoneCommands
+    ) {
         this.objectMapper = objectMapper;
         this.createScheduleUseCase = createScheduleUseCase;
+        this.timezoneCommands = timezoneCommands;
     }
 
     @KafkaListener(topics = Topics.INBOUND_MESSAGES, containerFactory = ContractKafkaConfig.FACTORY)
     public void handle(String json, Acknowledgment ack) throws JsonProcessingException {
         IncomingMessage message = objectMapper.readValue(json, IncomingMessage.class);
-        createScheduleUseCase.handle(message);
+        if (TimezoneCommandHandler.isTimezoneCommand(message.text())) {
+            timezoneCommands.handle(message);
+        } else {
+            createScheduleUseCase.handle(message);
+        }
         ack.acknowledge();
     }
 }

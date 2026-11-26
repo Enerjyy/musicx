@@ -87,6 +87,9 @@ export const loginWithTelegram = async (): Promise<TelegramAuthResult> => {
         const parsed = readAuthResult(await res.json());
         cached = parsed;
         setToken(parsed.token);
+        // Часовой пояс устройства уходит на бэкенд сразу после входа (шаг 9).
+        // Fire-and-forget: ошибка сети или невалидная зона не должны ломать логин.
+        void syncTimezone(parsed.token).catch(() => undefined);
         return parsed;
     })();
 
@@ -113,6 +116,41 @@ export const ensureLoggedIn = (): Promise<TelegramAuthResult | null> => {
 };
 
 export const getCachedUser = (): TelegramUser | null => cached?.user ?? null;
+
+/**
+ * Отправляет часовой пояс устройства на `PUT /users/me/timezone`.
+ *
+ * Бэкенд сохраняет её со статусом AUTO и не перетирает ручную зону
+ * (команда /timezone, статус MANUAL). Никогда не бросает: ошибка сети или
+ * пустая/невалидная зона не ломают логин.
+ *
+ * @param token    JWT, полученный логином
+ * @param timeZone зона; по умолчанию — зона устройства (`Intl`)
+ */
+export const syncTimezone = async (token: string, timeZone?: string): Promise<boolean> => {
+    let zone: string | undefined;
+    try {
+        zone = timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch {
+        return false;
+    }
+    if (!zone) return false;
+
+    try {
+        const res = await fetch(buildUrl('/users/me/timezone'), {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ timezone: zone }),
+        });
+        return res.ok;
+    } catch {
+        return false;
+    }
+};
 
 export const getTokenFromCache = (): string | null => getToken();
 

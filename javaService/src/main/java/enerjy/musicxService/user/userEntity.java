@@ -1,6 +1,8 @@
 package enerjy.musicxService.user;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -36,4 +38,13 @@ public class userEntity {
 
     @Column(length = 255)
     private String nickname;
+
+    /** Часовой пояс пользователя в формате IANA (например, Europe/Berlin). */
+    @Column(name = "timezone", length = 64)
+    private String timezone;
+
+    /** Кто задал зону — см. {@link TimezoneStatus}. */
+    @Column(name = "timezone_status", length = 16)
+    @Enumerated(EnumType.STRING)
+    private TimezoneStatus timezoneStatus;
 }

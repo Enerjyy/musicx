@@ -4,6 +4,7 @@ import enerjy.musicxService.security.AuthProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -107,6 +108,29 @@ public class userService {
 
     public List<userEntity> findAll() {
         return userRepository.findAll();
+    }
+
+    /**
+     * Сохраняет часовой пояс пользователя.
+     *
+     * AUTO (пришёл из Mini App при входе) не перетирает MANUAL: зону, которую
+     * пользователь выставил командой /timezone, автодетект менять не имеет права.
+     *
+     * @param zone   зона в формате IANA (валидация через {@link ZoneId#of} — на вызывающем)
+     * @param status кто задал зону
+     */
+    @Transactional
+    public userEntity setTimezone(long userId, ZoneId zone, TimezoneStatus status) {
+        userEntity user = findById(userId).orElseThrow(() ->
+                new IllegalArgumentException("user not found: " + userId));
+
+        if (status == TimezoneStatus.AUTO && user.getTimezoneStatus() == TimezoneStatus.MANUAL) {
+            return user;
+        }
+
+        user.setTimezone(zone.getId());
+        user.setTimezoneStatus(status);
+        return userRepository.save(user);
     }
 
     /** Все способы входа пользователя — для отладки и отображения в профиле. */
