@@ -48,6 +48,31 @@ tasks.withType<Test> {
 	useJUnitPlatform()
 }
 
+// Шаг 10: обычный test не должен требовать ключ и ходить во внешний API,
+// поэтому тег llm-eval из него исключён, а отдельная задача llmEval
+// выполняет только эти тесты.
+tasks.named<Test>("test") {
+	useJUnitPlatform {
+		excludeTags("llm-eval")
+	}
+}
+
+tasks.register<Test>("llmEval") {
+	group = "verification"
+	description = "Прогон датасета русских фраз через LLM-модели (нужен OPENROUTER_API_KEY)."
+	useJUnitPlatform {
+		includeTags("llm-eval")
+	}
+	testClassesDirs = sourceSets["test"].output.classesDirs
+	classpath = sourceSets["test"].runtimeClasspath
+	shouldRunAfter(tasks.named("test"))
+	doFirst {
+		if (System.getenv("OPENROUTER_API_KEY").isNullOrBlank()) {
+			println("ПРЕДУПРЕЖДЕНИЕ: OPENROUTER_API_KEY не задан — llmEval будет пропущен (тест отключён через @EnabledIfEnvironmentVariable).")
+		}
+	}
+}
+
 // Docker copies build/libs/*.jar to app.jar, and a glob matching two files
 // fails. Keep only the executable boot jar and drop the plain one.
 tasks.named("jar") {
