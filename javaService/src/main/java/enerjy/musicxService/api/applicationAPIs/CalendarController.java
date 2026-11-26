@@ -71,10 +71,23 @@ public class CalendarController {
 
     private static CalendarEntryDto toDto(userSchedules entry) {
         return new CalendarEntryDto(
+                entry.getSceduleId(),
                 entry.getDate().toString(),
                 entry.getTime() == null ? null : entry.getTime().toString(),
+                endTime(entry),
                 entry.getTitle(),
                 entry.getNote()
         );
+    }
+
+    /** Локальное время конца в зоне записи; null для записей без рассчитанного конца. */
+    private static String endTime(userSchedules entry) {
+        if (entry.getEndAt() == null || entry.getTimezone() == null) {
+            return null;
+        }
+        return entry.getEndAt()
+                .atZone(java.time.ZoneId.of(entry.getTimezone()))
+                .toLocalTime()
+                .toString();
     }
 }
