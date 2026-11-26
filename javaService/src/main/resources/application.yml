@@ -2,6 +2,10 @@ server:
   port: 8081
 app:
   time-zone: ${APP_TIME_ZONE:Europe/Moscow}
+  reminders:
+    # Напоминание за 3 часа до начала; отправку делает планировщик (Шаг 8),
+    # создание — сценарий создания записи (Шаг 5).
+    offset: ${REMINDERS_OFFSET:PT3H}
   calendar:
     default-duration-minutes: ${CALENDAR_DEFAULT_DURATION_MINUTES:60}
     # Горизонт планирования: не дальше чем столько дней от текущего момента.
