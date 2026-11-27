@@ -20,6 +20,12 @@ export interface CalendarEntry {
     date: string;
     /** `HH:mm` или `HH:mm:ss`. Может отсутствовать — тогда запись без времени. */
     time?: string;
+    /** Конец записи (`HH:mm`). Отсутствует у безвременных записей и записей без конца. */
+    endTime?: string;
+    /** Идентификатор записи на бэкенде — нужен для стабильных ключей в списках. */
+    id?: number;
+    /** Безвременная запись: занимает весь день, время не задано. */
+    allDay?: boolean;
     title?: string;
     note?: string;
 }
@@ -68,9 +74,15 @@ const toEntry = (raw: unknown): CalendarEntry | null => {
     const text = (value: unknown): string | undefined =>
         typeof value === 'string' && value.trim() ? value.trim() : undefined;
 
+    const id = typeof candidate.id === 'number' && Number.isFinite(candidate.id) ? candidate.id : undefined;
+    const allDay = candidate.allDay === true ? true : undefined;
+
     return {
         date: dateKey,
         time: normalizeTime(typeof candidate.time === 'string' ? candidate.time : undefined),
+        endTime: normalizeTime(typeof candidate.endTime === 'string' ? candidate.endTime : undefined),
+        id,
+        allDay,
         title: text(candidate.title),
         note: text(candidate.note),
     };

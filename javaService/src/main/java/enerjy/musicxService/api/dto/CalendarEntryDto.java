@@ -12,6 +12,11 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  * `id` и `endTime` добавлены позже (Шаг 4): фронт игнорирует неизвестные поля,
  * поэтому старый клиент продолжает работать. Пустые поля из JSON убираются
  * (NON_NULL), чтобы не менять ответ для записей без конца/описания.
+ *
+ * `allDay` добавлен позже: признак «безвременной» записи (в БД у неё
+ * `time = NULL`, `startAt/endAt = NULL`). Для old-совместимости он тоже
+ * NON_NULL — старый фронт молча игнорирует неизвестные поля, а «без времени»
+ * он и так понимает по отсутствию `time`.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -21,6 +26,7 @@ public record CalendarEntryDto(
         String time,
         String endTime,
         String title,
-        String note
+        String note,
+        Boolean allDay
 ) {
 }

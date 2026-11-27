@@ -2,6 +2,7 @@ package enerjy.musicxService.Logic.schedule;
 
 import enerjy.musicxService.LlmRequests.LlmRequestException;
 import enerjy.musicxService.Logic.schedule.parse.EventParser;
+import enerjy.musicxService.Logic.schedule.parse.Intent;
 import enerjy.musicxService.Logic.schedule.parse.ParsedEvent;
 import enerjy.musicxService.messaging.MessageTemplates;
 import enerjy.musicxService.messaging.contract.Channels;
@@ -93,6 +94,8 @@ class CreateScheduleUseCaseTest {
     @Mock
     private CommandJournalRepo commandJournal;
     @Mock
+    private ModifyScheduleUseCase modifySchedule;
+    @Mock
     private OutboundChannel channel;
 
     private CreateScheduleUseCase useCase;
@@ -101,8 +104,8 @@ class CreateScheduleUseCaseTest {
     void setUp() {
         when(channel.id()).thenReturn(Channels.TELEGRAM);
         useCase = new CreateScheduleUseCase(
-                eventParser, validator, schedulesRepo, userService, processedEvents, reminders,
-                commandJournal, new ChannelRegistry(List.of(channel)), stubTransactions(),
+                eventParser, validator, modifySchedule, schedulesRepo, userService, processedEvents,
+                reminders, commandJournal, new ChannelRegistry(List.of(channel)), stubTransactions(),
                 Clock.fixed(NOW, ZoneOffset.UTC), ZONE, Duration.ofHours(3));
     }
 
@@ -323,6 +326,92 @@ class CreateScheduleUseCaseTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("WHATSAPP");
         verify(eventParser, never()).parse(any(), any());
+    }
+
+    /** Интент UPDATE/DELETE из чата уходит в отдельный сценарий с матчингом. */
+    @Test
+    void modifyIntentsAreDelegatedToModifyUseCase() {
+        when(eventParser.parse(any(), any())).thenReturn(new ParsedEvent(
+                true, null, null, LocalDateTime.of(2026, 11, 27, 15, 0),
+                null, null, Set.of(), false,
+                Intent.DELETE,
+                LocalDate.of(2026, 11, 27), LocalTime.of(15, 0), "гитара"));
+        TransactionSynchronizationManager.initSynchronization();
+
+        useCase.handle(message("удали запись про гитару в пятницу"));
+
+        var routedMessage = ArgumentCaptor.forClass(IncomingMessage.class);
+        var routedParsed = ArgumentCaptor.forClass(ParsedEvent.class);
+        verify(modifySchedule).handle(routedMessage.capture(), routedParsed.capture());
+        assertThat(routedMessage.getValue().messageId()).isEqualTo("1001");
+        assertThat(routedParsed.getValue().intent())
+                .isEqualTo(Intent.DELETE);
+        // Создание не должно ничего сохранить и подтвердить.
+        verify(schedulesRepo, never()).save(any());
+        verify(reminders, never()).save(any());
+        verify(commandJournal, never()).save(any());
+    }
+
+    /** Запись «весь день»: time/startAt/endAt пустые, напоминание — полуночное. */
+    @Test
+    void createsAllDayScheduleWithMidnightReminder() {
+        var midnight = Instant.parse("2026-11-26T21:00:00Z"); // 00:00 27.11 МСК
+        when(eventParser.parse(any(), any())).thenReturn(new ParsedEvent(
+                true, "Репетиция", null, LocalDateTime.of(2026, 11, 27, 0, 0),
+                null, null, Set.of("time"), false));
+        when(validator.validate(any(), any())).thenReturn(new ValidatedSchedule(
+                "Репетиция", null, null, null, ZONE, true, midnight));
+        when(userService.upsertByIdentity(any(), anyString(), isNull(), isNull())).thenReturn(user(7L));
+        when(schedulesRepo.save(any())).thenAnswer(invocation -> {
+            invocation.getArgument(0, userSchedules.class).setSceduleId(13L);
+            return invocation.getArgument(0);
+        });
+        when(processedEvents.existsById(any())).thenReturn(false);
+        TransactionSynchronizationManager.initSynchronization();
+
+        useCase.handle(message("завтра репетиция, весь день"));
+
+        var schedule = ArgumentCaptor.forClass(userSchedules.class);
+        verify(schedulesRepo).save(schedule.capture());
+        assertThat(schedule.getValue().getDate()).isEqualTo(LocalDate.of(2026, 11, 27));
+        assertThat(schedule.getValue().getTime()).isNull();
+        assertThat(schedule.getValue().getStartAt()).isNull();
+        assertThat(schedule.getValue().getEndAt()).isNull();
+        assertThat(schedule.getValue().getTimezone()).isEqualTo("Europe/Moscow");
+
+        var reminder = ArgumentCaptor.forClass(Reminder.class);
+        verify(reminders).save(reminder.capture());
+        assertThat(reminder.getValue().getKind()).isEqualTo(ReminderKind.MIDNIGHT);
+        assertThat(reminder.getValue().getRemindAt()).isEqualTo(midnight);
+        // Полночь (21:00 UTC предыдущего дня) позже NOW = 10:00 UTC — ещё ждём.
+        assertThat(reminder.getValue().getStatus()).isEqualTo(ReminderStatus.PENDING);
+
+        TransactionSynchronizationManager.getSynchronizations()
+                .forEach(TransactionSynchronization::afterCommit);
+        assertThat(singleConfirmation().text())
+                .contains("Запись создана: Репетиция")
+                .contains("27.11.2026 — весь день");
+    }
+
+    /** Полночь уже прошла (запись создана днём) — напоминание не отправляем. */
+    @Test
+    void allDayReminderIsSkippedWhenMidnightAlreadyPassed() {
+        var midnight = Instant.parse("2026-11-25T21:00:00Z"); // 00:00 26.11 МСК — уже сегодня
+        when(eventParser.parse(any(), any())).thenReturn(new ParsedEvent(
+                true, "Репетиция", null, LocalDateTime.of(2026, 11, 26, 0, 0),
+                null, null, Set.of("time"), false));
+        when(validator.validate(any(), any())).thenReturn(new ValidatedSchedule(
+                "Репетиция", null, null, null, ZONE, true, midnight));
+        when(userService.upsertByIdentity(any(), anyString(), isNull(), isNull())).thenReturn(user(7L));
+        when(schedulesRepo.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        TransactionSynchronizationManager.initSynchronization();
+
+        useCase.handle(message("сегодня репетиция, весь день"));
+
+        var reminder = ArgumentCaptor.forClass(Reminder.class);
+        verify(reminders).save(reminder.capture());
+        assertThat(reminder.getValue().getKind()).isEqualTo(ReminderKind.MIDNIGHT);
+        assertThat(reminder.getValue().getStatus()).isEqualTo(ReminderStatus.SKIPPED);
     }
 
     // --- helpers ---

@@ -4,13 +4,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import enerjy.musicxService.LlmRequests.LlmRequestException;
 import enerjy.musicxService.LlmRequests.OpenRouterClient;
 import enerjy.musicxService.LlmRequests.dto.ChatRequest;
+import enerjy.musicxService.LlmRequests.prompts.EventPrompts;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -201,6 +204,131 @@ class LlmEventParserTest {
         assertThatThrownBy(() -> new LlmEventParser(client, MAPPER, " ", List.of(" "), fixedClock()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("openrouter.model");
+    }
+
+    @Test
+    void mapsUpdateIntentWithMatchFields() {
+        when(client.post(any())).thenReturn(response("""
+                {"isEvent":true,"intent":"update","title":"Урок гитары",
+                 "startLocal":"2026-11-27T18:00","endLocal":null,"durationMinutes":null,
+                 "allDay":false,
+                 "match":{"date":"2026-11-25","time":"15:00","title":"урок гитары"},
+                 "missing":[],"ambiguous":false}
+                """));
+        var parser = new LlmEventParser(client, MAPPER, "m1", List.of(), fixedClock());
+
+        var event = parser.parse("перенеси урок гитары на завтра 18:00", BERLIN);
+
+        assertThat(event.intent()).isEqualTo(Intent.UPDATE);
+        assertThat(event.startLocal()).isEqualTo(LocalDateTime.of(2026, 11, 27, 18, 0));
+        assertThat(event.matchDate()).isEqualTo(LocalDate.of(2026, 11, 25));
+        assertThat(event.matchTime()).isEqualTo(LocalTime.of(15, 0));
+        assertThat(event.matchTitle()).isEqualTo("урок гитары");
+    }
+
+    @Test
+    void mapsDeleteIntentWithoutNewTime() {
+        when(client.post(any())).thenReturn(response("""
+                {"isEvent":true,"intent":"delete","title":null,
+                 "startLocal":null,"endLocal":null,"durationMinutes":null,
+                 "allDay":false,
+                 "match":{"date":"2026-11-27","time":null,"title":"репетиция"},
+                 "missing":[],"ambiguous":false}
+                """));
+        var parser = new LlmEventParser(client, MAPPER, "m1", List.of(), fixedClock());
+
+        var event = parser.parse("удали запись про репетицию в четверг", BERLIN);
+
+        assertThat(event.intent()).isEqualTo(Intent.DELETE);
+        assertThat(event.startLocal()).isNull();
+        assertThat(event.matchDate()).isEqualTo(LocalDate.of(2026, 11, 27));
+        assertThat(event.matchTime()).isNull();
+        assertThat(event.matchTitle()).isEqualTo("репетиция");
+    }
+
+    @Test
+    void unknownOrAbsentIntentMeansCreate() {
+        when(client.post(any())).thenReturn(response("""
+                {"isEvent":true,"intent":"move","startLocal":"2026-11-27T15:00"}
+                """));
+        var parser = new LlmEventParser(client, MAPPER, "m1", List.of(), fixedClock());
+
+        assertThat(parser.parse("завтра в 15:00", BERLIN).intent()).isEqualTo(Intent.CREATE);
+    }
+
+    @Test
+    void legacyResponseWithoutNewFieldsDefaultsToCreate() {
+        // Ответ по схеме v1: без intent, match и allDay — должен разбираться как раньше.
+        when(client.post(any())).thenReturn(response("""
+                {"isEvent":true,"title":"Гитара","startLocal":"2026-11-27T15:00",
+                 "missing":[],"ambiguous":false}
+                """));
+        var parser = new LlmEventParser(client, MAPPER, "m1", List.of(), fixedClock());
+
+        var event = parser.parse("завтра в 15:00 урок гитары", BERLIN);
+
+        assertThat(event.intent()).isEqualTo(Intent.CREATE);
+        assertThat(event.matchDate()).isNull();
+        assertThat(event.matchTime()).isNull();
+        assertThat(event.matchTitle()).isNull();
+        assertThat(event.startAt(BERLIN)).isEqualTo(Instant.parse("2026-11-27T14:00:00Z"));
+    }
+
+    @Test
+    void allDayMarksTimeAsMissing() {
+        // all-day = дата в startLocal с временем 00:00 + "time" в missing:
+        // иначе валидатору неоткуда взять дату для проверки прошлого и напоминания.
+        when(client.post(any())).thenReturn(response("""
+                {"isEvent":true,"intent":"create","title":"Репетиция",
+                 "startLocal":"2026-11-27T00:00","allDay":true,
+                 "missing":[],"ambiguous":false}
+                """));
+        var parser = new LlmEventParser(client, MAPPER, "m1", List.of(), fixedClock());
+
+        var event = parser.parse("завтра репетиция, весь день", BERLIN);
+
+        assertThat(event.startLocal()).isEqualTo(LocalDateTime.of(2026, 11, 27, 0, 0));
+        assertThat(event.ambiguous()).isFalse();
+        assertThat(event.missing()).containsExactly("time");
+    }
+
+    @Test
+    void badMatchValuesAreIgnoredInsteadOfFailing() {
+        // match — опорные точки поиска: мусор в них не должен валить весь разбор.
+        when(client.post(any())).thenReturn(response("""
+                {"isEvent":true,"intent":"update","startLocal":"2026-11-27T18:00",
+                 "match":{"date":"soon","time":"25:99","title":" "},
+                 "missing":[],"ambiguous":false}
+                """));
+        var parser = new LlmEventParser(client, MAPPER, "m1", List.of(), fixedClock());
+
+        var event = parser.parse("перенеси", BERLIN);
+
+        assertThat(event.intent()).isEqualTo(Intent.UPDATE);
+        assertThat(event.matchDate()).isNull();
+        assertThat(event.matchTime()).isNull();
+        assertThat(event.matchTitle()).isNull();
+        assertThat(event.startLocal()).isEqualTo(LocalDateTime.of(2026, 11, 27, 18, 0));
+    }
+
+    @Test
+    void schemaAndPromptDeclareIntentMatchAndAllDay() {
+        assertThat(EventPrompts.SCHEMA_JSON)
+                .contains("\"intent\"")
+                .contains("\"match\"")
+                .contains("\"allDay\"");
+
+        when(client.post(any())).thenReturn(response("""
+                {"isEvent":true,"startLocal":"2026-11-27T15:00"}
+                """));
+        var parser = new LlmEventParser(client, MAPPER, "m1", List.of(), fixedClock());
+        parser.parse("завтра в 15:00", BERLIN);
+
+        ArgumentCaptor<ChatRequest> captor = ArgumentCaptor.forClass(ChatRequest.class);
+        verify(client).post(captor.capture());
+        var system = captor.getValue().messages().get(0).content();
+        assertThat(system).contains("intent").contains("allDay").contains("перенеси урок гитары");
+        assertThat(captor.getValue().responseFormat().jsonSchema().strict()).isTrue();
     }
 
     private static Clock fixedClock() {

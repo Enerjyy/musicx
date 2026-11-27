@@ -13,7 +13,9 @@ import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -24,7 +26,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Парсер событий через LLM (OpenRouter) по контракту v1 ({@link EventPrompts}).
+ * Парсер событий через LLM (OpenRouter) по контракту v2 ({@link EventPrompts}).
  *
  * Модель перебирается по порядку: основная, затем запасные из
  * {@code openrouter.fallback-models}. Каждая попытка ограничена таймаутом
@@ -33,6 +35,10 @@ import java.util.Set;
  *
  * Модель возвращает только локальные значения пользователя; {@code Instant}
  * из них считает {@link ParsedEvent#startAt(ZoneId)}.
+ *
+ * <p>Контракт v2 добавил intent и match-поля (update/delete из чата) и allDay.
+ * Ответы без новых полей (старая схема v1) остаются валидными: отсутствующий
+ * intent означает CREATE, отсутствующие match-поля — null.
  */
 @Service
 public class LlmEventParser implements EventParser {
@@ -171,6 +177,16 @@ public class LlmEventParser implements EventParser {
     }
 
     private ParsedEvent map(JsonNode node) {
+        var missing = missing(node);
+        // allDay согласуем с полем missing: «весь день» — это дата (в startLocal,
+        // время 00:00) без конкретного времени. Без этой нормализации валидатор
+        // не отличит безвременную запись от обычной, а модель иногда забывает про missing.
+        if (node.path("allDay").asBoolean(false)) {
+            var withTime = new LinkedHashSet<String>(missing);
+            withTime.add("time");
+            missing = Set.copyOf(withTime);
+        }
+        var match = node.path("match");
         return new ParsedEvent(
                 node.path("isEvent").asBoolean(false),
                 textOrNull(node, "title"),
@@ -178,9 +194,39 @@ public class LlmEventParser implements EventParser {
                 localDateTimeOrNull(node, "startLocal"),
                 localDateTimeOrNull(node, "endLocal"),
                 integerOrNull(node, "durationMinutes"),
-                missing(node),
-                node.path("ambiguous").asBoolean(false)
+                missing,
+                node.path("ambiguous").asBoolean(false),
+                Intent.from(textOrNull(node, "intent")),
+                localDateOrNull(match, "date"),
+                localTimeOrNull(match, "time"),
+                textOrNull(match, "title")
         );
+    }
+
+    private static LocalDate localDateOrNull(JsonNode node, String field) {
+        String raw = textOrNull(node, field);
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(raw);
+        } catch (DateTimeParseException ignored) {
+            // match-поля — опорные точки поиска, а не обязательные данные:
+            // мусор в них не должен валить весь разбор, матчинг просто не сузится.
+            return null;
+        }
+    }
+
+    private static LocalTime localTimeOrNull(JsonNode node, String field) {
+        String raw = textOrNull(node, field);
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return LocalTime.parse(raw);
+        } catch (DateTimeParseException ignored) {
+            return null;
+        }
     }
 
     private static LocalDateTime localDateTimeOrNull(JsonNode node, String field) {

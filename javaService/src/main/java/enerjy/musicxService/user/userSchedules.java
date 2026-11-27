@@ -43,8 +43,8 @@ public class userSchedules {
     @Column(nullable = false)
     private LocalDate date;
 
-    /** Локальное время в зоне записи; остаётся источником для /calendar. */
-    @Column(nullable = false)
+    /** Локальное время в зоне записи; null для записей «весь день» (V11). */
+    @Column
     private LocalTime time;
 
     @Column(length = 200)

@@ -6,27 +6,44 @@ import java.time.format.TextStyle;
 import java.util.Locale;
 
 /**
- * Промпт и JSON-схема контракта v1 парсинга событий (Шаг 3).
+ * Промпт и JSON-схема контракта v2 парсинга событий (Шаг 3 + интенты).
  *
  * Модель видит локальные дату, время, день недели и зону пользователя и
  * возвращает только локальные значения ({@code YYYY-MM-DDTHH:mm}, без
  * смещений и без Z): {@code Instant} из них считает Java-код, поэтому
  * часовые пояса и переходы на летнее время не зависят от модели.
+ *
+ * <p>Отличия от v1: добавлены {@code intent} (создать/перенести/удалить),
+ * блок {@code match} (опорные точки существующей записи для update/delete)
+ * и {@code allDay} («весь день» — дата без времени). Java-код толерантен к
+ * ответам без этих полей: нет intent — считается CREATE.
  */
 public final class EventPrompts {
 
     private static final String SYSTEM_TEMPLATE = """
             Ты парсер событий музыкального календаря.
             Сейчас у пользователя %s, %s, местное время %s, часовой пояс %s.
-            Пользователь пишет свободным текстом, когда и что он играет, и хочет создать запись.
-            Если сообщение — не попытка создать запись (команда, приветствие, вопрос) — верни
-            isEvent=false и пустые поля.
+            Пользователь пишет свободным текстом о записях в календаре.
+            Определи intent:
+            - "create" — пользователь хочет создать новую запись (по умолчанию);
+            - "update" — перенести или исправить существующую запись («перенеси», «поставь на другое время», «давай в пятницу вместо среды»);
+            - "delete" — удалить существующую запись («удали», «отмени»).
+            Для update/delete заполни match — опорные точки СУЩЕСТВУЮЩЕЙ записи, о которой речь:
+            - match.date — дата существующей записи (YYYY-MM-DD), если понятна;
+            - match.time — время существующей записи (HH:mm), если понятно;
+            - match.title — название (или слова, по которым запись можно узнать), если понятно.
+            При update новое время и новая дата записываются как обычно в startLocal
+            (или endLocal/durationMinutes, если пользователь уточнил только их).
+            При delete новые время и дату не выдумывай: startLocal, endLocal, durationMinutes оставь пустыми.
             Извлеки:
             - title — короткое название;
             - description — дополнительное описание;
             - startLocal — начало в формате YYYY-MM-DDTHH:mm;
             - endLocal — конец, если пользователь указал только конец («до 16:00»);
             - durationMinutes — длительность в минутах, если она указана («на 2 часа», «на 45 минут»);
+            - allDay — true, если пользователь назначил событие на весь день без конкретного
+              времени («весь день», «целый день», «на весь день»): тогда startLocal = дата
+              события и время 00:00 (например "2026-11-28T00:00"), а в missing добавь "time";
             - missing — чего не хватает: ["date"], ["time"] или ["date","time"];
             - ambiguous — true, если время неоднозначно без контекста (например «в 5» —
               неясно, утра или вечера, и неизвестна дата).
@@ -40,6 +57,13 @@ public final class EventPrompts {
             Примеры: "25 ноября 2026 года 15:00" → "2026-11-25T15:00",
             "November 25, 2026 3:00 PM" → "2026-11-25T15:00",
             "с 14 до 16" → startLocal с временем 14:00 и endLocal с временем 16:00.
+            Примеры интентов: "перенеси урок гитары на пятницу 18:00" → intent "update",
+            match.title "урок гитары", startLocal с датой ближайшей пятницы и временем 18:00;
+            "удали запись про гитару в среду" → intent "delete", match.date со средой,
+            match.title "гитару"; "завтра репетиция, весь день" → intent "create",
+            allDay true, startLocal с датой завтрашнего дня и временем 00:00, missing ["time"].
+            Если сообщение — не про записи календаря (команда, приветствие, вопрос) — верни
+            isEvent=false и пустые поля.
             Отвечай только JSON по схеме.
             """;
 
@@ -57,7 +81,12 @@ public final class EventPrompts {
               "properties": {
                 "isEvent": {
                   "type": "boolean",
-                  "description": "true, если пользователь хочет создать запись в календаре."
+                  "description": "true, если сообщение про запись в календаре (создать, перенести или удалить)."
+                },
+                "intent": {
+                  "type": ["string", "null"],
+                  "enum": ["create", "update", "delete", null],
+                  "description": "create — создать запись, update — перенести/исправить существующую, delete — удалить существующую. Null допустим и означает create."
                 },
                 "title": {
                   "type": ["string", "null"],
@@ -71,7 +100,7 @@ public final class EventPrompts {
                 },
                 "startLocal": {
                   "type": ["string", "null"],
-                  "description": "Начало строго в формате YYYY-MM-DDTHH:mm, локальное время пользователя, без смещения и без Z. Если нет — null."
+                  "description": "Начало строго в формате YYYY-MM-DDTHH:mm, локальное время пользователя, без смещения и без Z. Для all-day события — дата и время 00:00, для delete — null."
                 },
                 "endLocal": {
                   "type": ["string", "null"],
@@ -81,6 +110,31 @@ public final class EventPrompts {
                   "type": ["integer", "null"],
                   "minimum": 1,
                   "description": "Длительность в минутах, если указана. Иначе null."
+                },
+                "allDay": {
+                  "type": "boolean",
+                  "description": "true, если событие на весь день без конкретного времени («весь день»); тогда startLocal — дата и время 00:00, а в missing есть time."
+                },
+                "match": {
+                  "type": ["object", "null"],
+                  "properties": {
+                    "date": {
+                      "type": ["string", "null"],
+                      "description": "Дата существующей записи для update/delete, YYYY-MM-DD. Если нет — null."
+                    },
+                    "time": {
+                      "type": ["string", "null"],
+                      "description": "Время существующей записи для update/delete, HH:mm. Если нет — null."
+                    },
+                    "title": {
+                      "type": ["string", "null"],
+                      "maxLength": 200,
+                      "description": "Название (или его часть) существующей записи для update/delete. Если нет — null."
+                    }
+                  },
+                  "required": ["date", "time", "title"],
+                  "additionalProperties": false,
+                  "description": "Опорные точки существующей записи. Только для update/delete, иначе null."
                 },
                 "missing": {
                   "type": "array",
@@ -92,8 +146,8 @@ public final class EventPrompts {
                   "description": "true, если время неоднозначно без контекста, например «в 5»."
                 }
               },
-              "required": ["isEvent", "title", "description", "startLocal", "endLocal",
-                           "durationMinutes", "missing", "ambiguous"],
+              "required": ["isEvent", "intent", "title", "description", "startLocal", "endLocal",
+                           "durationMinutes", "allDay", "match", "missing", "ambiguous"],
               "additionalProperties": false
             }
             """;

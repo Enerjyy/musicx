@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -75,6 +76,59 @@ class ScheduleValidatorTest {
         var silent = new ParsedEvent(true, "Урок", null, null, null, null, Set.of(), false);
         assertThatThrownBy(() -> validator.validate(silent, MOSCOW))
                 .hasMessageContaining("Не хватает даты или времени");
+    }
+
+    @Test
+    void allDayPassesWithMidnightReminder() {
+        var result = validator.validate(allDay(LocalDate.of(2026, 11, 28)), MOSCOW);
+
+        assertThat(result.allDay()).isTrue();
+        assertThat(result.startAt()).isNull();
+        assertThat(result.endAt()).isNull();
+        assertThat(result.zone()).isEqualTo(MOSCOW);
+        // Полночь 28.11 в Москве = 21:00 UTC 27.11.
+        assertThat(result.remindAt()).isEqualTo(Instant.parse("2026-11-27T21:00:00Z"));
+    }
+
+    @Test
+    void allDayTodayIsAcceptedEvenThoughMidnightPassed() {
+        // NOW = 13:00 по Москве 26.11: полночь уже прошла, но день ещё жив —
+        // проверка прошлого идёт по дню, а не по моменту.
+        var result = validator.validate(allDay(LocalDate.of(2026, 11, 26)), MOSCOW);
+
+        assertThat(result.allDay()).isTrue();
+        assertThat(result.remindAt()).isEqualTo(Instant.parse("2026-11-25T21:00:00Z"));
+    }
+
+    @Test
+    void allDayOnHorizonBoundaryIsAccepted() {
+        var result = validator.validate(allDay(LocalDate.of(2026, 11, 26).plusDays(730)), MOSCOW);
+
+        assertThat(result.allDay()).isTrue();
+    }
+
+    @Test
+    void pastAllDayIsRejected() {
+        assertThatThrownBy(() -> validator.validate(allDay(LocalDate.of(2026, 11, 25)), MOSCOW))
+                .isInstanceOf(ScheduleRejectionException.class)
+                .hasMessageContaining("уже прошло");
+    }
+
+    @Test
+    void allDayBeyondHorizonIsRejected() {
+        assertThatThrownBy(() -> validator.validate(allDay(LocalDate.of(2026, 11, 26).plusDays(731)), MOSCOW))
+                .hasMessageContaining("Слишком далёкая дата")
+                .hasMessageContaining("730");
+    }
+
+    @Test
+    void dateWithoutAllDayMarkerIsStillRejected() {
+        // missing = {"time"} без даты в startLocal — дата неизвестна, безвременной
+        // запись назвать нельзя: обычная подсказка про нехватку времени.
+        var noDate = new ParsedEvent(true, "Урок", null, null, null, null, Set.of("time"), false);
+
+        assertThatThrownBy(() -> validator.validate(noDate, MOSCOW))
+                .hasMessageContaining("Не хватает времени");
     }
 
     @Test
@@ -206,6 +260,12 @@ class ScheduleValidatorTest {
 
     private static ParsedEvent event(LocalDateTime startLocal) {
         return new ParsedEvent(true, "Урок", null, startLocal, null, null, Set.of(), false);
+    }
+
+    /** Безвременная запись по контракту: дата с 00:00 в startLocal, время в missing. */
+    private static ParsedEvent allDay(LocalDate date) {
+        return new ParsedEvent(true, "Репетиция", null,
+                date.atStartOfDay(), null, null, Set.of("time"), false);
     }
 
     private static ParsedEvent withDuration(LocalDateTime startLocal, int durationMinutes) {

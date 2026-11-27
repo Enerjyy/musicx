@@ -1,5 +1,7 @@
 package enerjy.musicxService.messaging;
 
+import enerjy.musicxService.user.Reminder;
+import enerjy.musicxService.user.ReminderKind;
 import enerjy.musicxService.user.userSchedules;
 import org.junit.jupiter.api.Test;
 
@@ -55,7 +57,9 @@ class MessageTemplatesTest {
         schedule.setStartAt(Instant.parse("2026-11-27T12:00:00Z")); // 15:00 МСК
         schedule.setTimezone("Europe/Moscow");
 
-        assertThat(MessageTemplates.reminder(schedule, java.time.Duration.ofHours(3)))
+        var reminder = reminder(ReminderKind.T_MINUS_3H);
+
+        assertThat(MessageTemplates.reminder(schedule, reminder, java.time.Duration.ofHours(3)))
                 .isEqualTo("Напоминание: через 3 ч — «Урок гитары» 27.11.2026 15:00");
     }
 
@@ -66,8 +70,29 @@ class MessageTemplatesTest {
         schedule.setStartAt(Instant.parse("2026-11-27T12:00:00Z"));
         schedule.setTimezone("Europe/Moscow");
 
-        assertThat(MessageTemplates.reminder(schedule, java.time.Duration.ofMinutes(90)))
+        var reminder = reminder(ReminderKind.T_MINUS_3H);
+
+        assertThat(MessageTemplates.reminder(schedule, reminder, java.time.Duration.ofMinutes(90)))
                 .isEqualTo("Напоминание: через 1 ч 30 мин — 27.11.2026 15:00");
+    }
+
+    @Test
+    void reminderAllDayTextSaysTodayInsteadOfOffset() {
+        var schedule = schedule();
+        schedule.setTitle("Репетиция");
+        schedule.setDate(java.time.LocalDate.of(2026, 11, 27));
+        schedule.setStartAt(null);
+        schedule.setTimezone("Europe/Moscow");
+        schedule.setNote("зал 2");
+
+        assertThat(MessageTemplates.reminder(schedule, reminder(ReminderKind.MIDNIGHT), java.time.Duration.ofHours(3)))
+                .isEqualTo("Напоминание: сегодня — «Репетиция» 27.11.2026, весь день\nОписание: зал 2");
+    }
+
+    private static Reminder reminder(ReminderKind kind) {
+        var reminder = new Reminder();
+        reminder.setKind(kind);
+        return reminder;
     }
 
     private static userSchedules schedule() {

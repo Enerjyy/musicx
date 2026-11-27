@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Objects;
 import java.util.Set;
@@ -21,6 +22,12 @@ import java.util.Set;
  *
  * Время считаем в зоне пользователя через {@link ParsedEvent#startAt(ZoneId)},
  * поэтому переходы на летнее время обрабатывает java.time, а не модель.
+ *
+ * <p>Записи «весь день» принимаются без времени: в {@link ParsedEvent} это
+ * {@code startLocal} = дата с временем 00:00 и {@code missing}, содержащий
+ * {@code "time"} (и не содержащий {@code "date"}). Проверяются только прошлое
+ * (по дню, а не по моменту: событие «сегодня весь день» ещё живо даже вечером)
+ * и горизонт планирования; напоминание — ровно 00:00 дня события в зоне пользователя.
  */
 @Service
 public class ScheduleValidator {
@@ -39,7 +46,8 @@ public class ScheduleValidator {
     public static final String HINT_MISSING_DATE =
             "Не хватает даты. Напишите целиком, например: «завтра в 15:00 урок гитары на час».";
     public static final String HINT_MISSING_TIME =
-            "Не хватает времени. Напишите целиком, например: «завтра в 15:00 урок гитары на час».";
+            "Не хватает времени. Укажите время, например: «завтра в 15:00», "
+                    + "или назначьте на весь день: «завтра репетиция, весь день».";
     public static final String HINT_IN_THE_PAST =
             "Это время уже прошло. Укажите будущее время, например: «завтра в 15:00 урок гитары на час».";
     public static final String HINT_END_BEFORE_START =
@@ -97,6 +105,9 @@ public class ScheduleValidator {
         if (event.ambiguous()) {
             throw reject(HINT_AMBIGUOUS);
         }
+        if (isAllDay(event)) {
+            return validateAllDay(event, userZone);
+        }
         if (event.startLocal() == null) {
             throw reject(hintForMissing(event.missing()));
         }
@@ -128,6 +139,48 @@ public class ScheduleValidator {
                 start,
                 end,
                 userZone
+        );
+    }
+
+    /**
+     * «Весь день»: дата есть (startLocal = дата и 00:00), конкретного времени нет.
+     * Не «startLocal == null»: дату иначе неоткуда взять, а без неё не проверить
+     * прошлое/горизонт и не посчитать полуночное напоминание.
+     */
+    private static boolean isAllDay(ParsedEvent event) {
+        return event.startLocal() != null
+                && event.missing().contains("time")
+                && !event.missing().contains("date");
+    }
+
+    /**
+     * Приёмка безвременной записи: прошлое и горизонт проверяем по дню, а не по
+     * моменту — «сегодня весь день» валидно и вечером; endAt/duration не проверяем,
+     * потому что их у такой записи нет. {@code remindAt} = 00:00 дня события:
+     * отправит ли его процессор (день ещё не наступил) — забота этапа напоминаний,
+     * здесь фиксируется только сам момент.
+     */
+    private ValidatedSchedule validateAllDay(ParsedEvent event, ZoneId userZone) {
+        Instant now = Instant.now(clock);
+        LocalDate date = event.startLocal().toLocalDate();
+        LocalDate today = now.atZone(userZone).toLocalDate();
+        Instant dayStart = date.atStartOfDay(userZone).toInstant();
+
+        if (date.isBefore(today)) {
+            throw reject(HINT_IN_THE_PAST);
+        }
+        if (dayStart.isAfter(now.plus(Duration.ofDays(maxHorizonDays)))) {
+            throw reject(HINT_TOO_FAR.formatted(maxHorizonDays));
+        }
+
+        return new ValidatedSchedule(
+                truncate(event.title(), TITLE_MAX_LENGTH),
+                truncate(event.description(), NOTE_MAX_LENGTH),
+                null,
+                null,
+                userZone,
+                true,
+                dayStart
         );
     }
 

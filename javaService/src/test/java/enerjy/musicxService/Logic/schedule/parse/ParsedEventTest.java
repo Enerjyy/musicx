@@ -91,6 +91,25 @@ class ParsedEventTest {
         assertThat(event.missing()).containsExactly("date");
     }
 
+    @Test
+    void intentDefaultsToCreateInLegacyConstructor() {
+        var event = new ParsedEvent(true, null, null, null, null, null, Set.of(), false);
+
+        assertThat(event.intent()).isEqualTo(Intent.CREATE);
+        assertThat(event.matchDate()).isNull();
+        assertThat(event.matchTime()).isNull();
+        assertThat(event.matchTitle()).isNull();
+    }
+
+    @Test
+    void intentNullBecomesCreateAndMatchTitleBlankBecomesNull() {
+        var event = new ParsedEvent(true, null, null, null, null, null, Set.of(), false,
+                null, null, null, "   ");
+
+        assertThat(event.intent()).isEqualTo(Intent.CREATE);
+        assertThat(event.matchTitle()).isNull();
+    }
+
     private static ParsedEvent event(LocalDateTime start) {
         return event(start, null);
     }

@@ -1,6 +1,7 @@
 package enerjy.musicxService.api.applicationAPIs;
 
 import enerjy.musicxService.api.dto.CalendarEntryDto;
+import enerjy.musicxService.user.ScheduleStatus;
 import enerjy.musicxService.user.UserPrincipal;
 import enerjy.musicxService.user.userSchedules;
 import enerjy.musicxService.user.userSchedulesRepo;
@@ -56,8 +57,11 @@ public class CalendarController {
         }
 
         var monthRange = YearMonth.of(year, month);
-        var entries = schedulesRepo.findByUserIdAndDateBetweenOrderByTimeAsc(
+        // Только ACTIVE: удалённые из чата записи уходят в CANCELED и должны
+        // исчезнуть из календаря, а не показываться навсегда.
+        var entries = schedulesRepo.findByUserIdAndStatusAndDateBetweenOrderByTimeAsc(
                 principal.userId(),
+                ScheduleStatus.ACTIVE,
                 monthRange.atDay(1),
                 monthRange.atEndOfMonth()
         );
@@ -76,7 +80,9 @@ public class CalendarController {
                 entry.getTime() == null ? null : entry.getTime().toString(),
                 endTime(entry),
                 entry.getTitle(),
-                entry.getNote()
+                entry.getNote(),
+                // Безвременная запись — это all-day: time = NULL, startAt = NULL.
+                entry.getTime() == null ? Boolean.TRUE : null
         );
     }
 

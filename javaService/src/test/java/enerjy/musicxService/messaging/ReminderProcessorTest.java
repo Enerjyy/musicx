@@ -10,6 +10,7 @@ import enerjy.musicxService.user.CommandJournalEntry;
 import enerjy.musicxService.user.CommandJournalRepo;
 import enerjy.musicxService.user.CommandPurpose;
 import enerjy.musicxService.user.Reminder;
+import enerjy.musicxService.user.ReminderKind;
 import enerjy.musicxService.user.ReminderRepo;
 import enerjy.musicxService.user.ReminderStatus;
 import enerjy.musicxService.user.userSchedules;
@@ -33,6 +34,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
@@ -53,6 +55,7 @@ class ReminderProcessorTest {
     private static final Instant NOW = Instant.parse("2026-11-26T10:00:00Z");
     private static final Duration STUCK_AFTER = Duration.ofMinutes(10);
     private static final Duration OFFSET = Duration.ofHours(3);
+    private static final Duration MIDNIGHT_GRACE = Duration.ofHours(6);
 
     @Mock
     private ReminderRepo reminders;
@@ -71,7 +74,7 @@ class ReminderProcessorTest {
         processor = new ReminderProcessor(
                 reminders, schedulesRepo, commandJournal,
                 new ChannelRegistry(List.of(channel)), stubTransactions(),
-                Clock.fixed(NOW, ZoneOffset.UTC), STUCK_AFTER, OFFSET, 50);
+                Clock.fixed(NOW, ZoneOffset.UTC), STUCK_AFTER, OFFSET, MIDNIGHT_GRACE, 50);
     }
 
     @AfterEach
@@ -85,8 +88,8 @@ class ReminderProcessorTest {
     void claimsDueReminderAndSendsAfterCommitToSameConversation() {
         var reminder = dueReminder(5L, 11L);
         when(reminders.returnStuckToPending(any(), any(), any())).thenReturn(0);
-        when(reminders.expirePassed(any(), any(), any())).thenReturn(0);
-        when(reminders.lockDue(eq(ReminderStatus.PENDING), eq(NOW), any(Pageable.class)))
+        when(reminders.expirePassed(any(), any(), any(), any(), any())).thenReturn(0);
+        when(reminders.lockDue(eq(ReminderStatus.PENDING), eq(NOW), any(), any(), any(Pageable.class)))
                 .thenReturn(List.of(reminder));
         when(schedulesRepo.findById(11L)).thenReturn(Optional.of(schedule()));
 
@@ -128,8 +131,8 @@ class ReminderProcessorTest {
     @Test
     void nothingHappensWithoutDueReminders() {
         when(reminders.returnStuckToPending(any(), any(), any())).thenReturn(0);
-        when(reminders.expirePassed(any(), any(), any())).thenReturn(0);
-        when(reminders.lockDue(any(), any(), any(Pageable.class))).thenReturn(List.of());
+        when(reminders.expirePassed(any(), any(), any(), any(), any())).thenReturn(0);
+        when(reminders.lockDue(any(), any(), any(), any(), any(Pageable.class))).thenReturn(List.of());
 
         processor.processDue();
 
@@ -140,22 +143,24 @@ class ReminderProcessorTest {
     @Test
     void rescueAndExpireRunsWithConfiguredDeadlines() {
         when(reminders.returnStuckToPending(any(), any(), any())).thenReturn(0);
-        when(reminders.expirePassed(any(), any(), any())).thenReturn(0);
-        when(reminders.lockDue(any(), any(), any(Pageable.class))).thenReturn(List.of());
+        when(reminders.expirePassed(any(), any(), any(), any(), any())).thenReturn(0);
+        when(reminders.lockDue(any(), any(), any(), any(), any(Pageable.class))).thenReturn(List.of());
 
         processor.processDue();
 
         verify(reminders).returnStuckToPending(
                 ReminderStatus.PENDING, ReminderStatus.SENDING, NOW.minus(STUCK_AFTER));
-        verify(reminders).expirePassed(ReminderStatus.EXPIRED, ReminderStatus.PENDING, NOW);
+        verify(reminders).expirePassed(
+                ReminderStatus.EXPIRED, ReminderStatus.PENDING, NOW,
+                ReminderKind.MIDNIGHT, NOW.minus(MIDNIGHT_GRACE));
     }
 
     @Test
     void missingScheduleFailsReminderWithoutSending() {
         var reminder = dueReminder(5L, 11L);
         when(reminders.returnStuckToPending(any(), any(), any())).thenReturn(0);
-        when(reminders.expirePassed(any(), any(), any())).thenReturn(0);
-        when(reminders.lockDue(any(), any(), any(Pageable.class))).thenReturn(List.of(reminder));
+        when(reminders.expirePassed(any(), any(), any(), any(), any())).thenReturn(0);
+        when(reminders.lockDue(any(), any(), any(), any(), any(Pageable.class))).thenReturn(List.of(reminder));
         when(schedulesRepo.findById(11L)).thenReturn(Optional.empty());
 
         processor.processDue();
@@ -169,8 +174,8 @@ class ReminderProcessorTest {
     void unsupportedChannelFailsReminder() {
         var reminder = dueReminder(5L, 11L);
         when(reminders.returnStuckToPending(any(), any(), any())).thenReturn(0);
-        when(reminders.expirePassed(any(), any(), any())).thenReturn(0);
-        when(reminders.lockDue(any(), any(), any(Pageable.class))).thenReturn(List.of(reminder));
+        when(reminders.expirePassed(any(), any(), any(), any(), any())).thenReturn(0);
+        when(reminders.lockDue(any(), any(), any(), any(), any(Pageable.class))).thenReturn(List.of(reminder));
         var schedule = schedule();
         schedule.setSourceChannel("WHATSAPP");
         when(schedulesRepo.findById(11L)).thenReturn(Optional.of(schedule));
@@ -186,16 +191,111 @@ class ReminderProcessorTest {
     void invalidConfigIsRejected() {
         assertThatThrownBy(() -> new ReminderProcessor(
                 reminders, schedulesRepo, commandJournal, null, stubTransactions(),
-                Clock.fixed(NOW, ZoneOffset.UTC), Duration.ZERO, OFFSET, 50))
+                Clock.fixed(NOW, ZoneOffset.UTC), Duration.ZERO, OFFSET, MIDNIGHT_GRACE, 50))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ReminderProcessor(
                 reminders, schedulesRepo, commandJournal, null, stubTransactions(),
-                Clock.fixed(NOW, ZoneOffset.UTC), STUCK_AFTER, OFFSET, 0))
+                Clock.fixed(NOW, ZoneOffset.UTC), STUCK_AFTER, OFFSET, MIDNIGHT_GRACE, 0))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new ReminderProcessor(
                 reminders, schedulesRepo, commandJournal, null, stubTransactions(),
-                Clock.fixed(NOW, ZoneOffset.UTC), STUCK_AFTER, Duration.ofHours(-1), 50))
+                Clock.fixed(NOW, ZoneOffset.UTC), STUCK_AFTER, Duration.ofHours(-1), MIDNIGHT_GRACE, 50))
                 .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new ReminderProcessor(
+                reminders, schedulesRepo, commandJournal, null, stubTransactions(),
+                Clock.fixed(NOW, ZoneOffset.UTC), STUCK_AFTER, OFFSET, Duration.ZERO, 50))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void claimsDueMidnightReminderAndSendsAllDayText() {
+        var reminder = dueReminder(5L, 11L);
+        reminder.setKind(ReminderKind.MIDNIGHT);
+        // NOW = 10:00 UTC; полночь уже наступила (remindAt = час назад) —
+        // внутри grace-окна (6 часов), окно lockDue такое и вернёт.
+        reminder.setRemindAt(NOW.minus(Duration.ofHours(1)));
+        when(reminders.returnStuckToPending(any(), any(), any())).thenReturn(0);
+        when(reminders.expirePassed(any(), any(), any(), any(), any())).thenReturn(0);
+        when(reminders.lockDue(any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(List.of(reminder));
+        var schedule = schedule();
+        schedule.setStartAt(null);
+        schedule.setDate(LocalDate.of(2026, 11, 26));
+        schedule.setEndAt(null);
+        when(schedulesRepo.findById(11L)).thenReturn(Optional.of(schedule));
+
+        TransactionSynchronizationManager.initSynchronization();
+        processor.processDue();
+
+        assertThat(reminder.getStatus()).isEqualTo(ReminderStatus.SENDING);
+        verify(commandJournal).save(any(CommandJournalEntry.class));
+
+        TransactionSynchronizationManager.getSynchronizations()
+                .forEach(TransactionSynchronization::afterCommit);
+
+        var published = ArgumentCaptor.forClass(OutboundCommand.class);
+        verify(channel, atLeastOnce()).publish(published.capture());
+        var send = (SendMessage) published.getValue();
+        assertThat(send.text())
+                .contains("Напоминание: сегодня")
+                .contains("«Урок гитары»")
+                .contains("весь день");
+    }
+
+    @Test
+    void midnightReminderPastGraceWindowExpiresWithoutSending() {
+        var reminder = dueReminder(5L, 11L);
+        reminder.setKind(ReminderKind.MIDNIGHT);
+        // Полночь события была больше grace назад — тик её уже не должен был
+        // вернуть, но защитная ветка claim() гасит и такую (долгий простой).
+        reminder.setRemindAt(NOW.minus(MIDNIGHT_GRACE).minusSeconds(60));
+        when(reminders.returnStuckToPending(any(), any(), any())).thenReturn(0);
+        when(reminders.expirePassed(any(), any(), any(), any(), any())).thenReturn(0);
+        when(reminders.lockDue(any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(List.of(reminder));
+        var schedule = schedule();
+        schedule.setStartAt(null);
+        when(schedulesRepo.findById(11L)).thenReturn(Optional.of(schedule));
+
+        processor.processDue();
+
+        assertThat(reminder.getStatus()).isEqualTo(ReminderStatus.EXPIRED);
+        verify(commandJournal, never()).save(any());
+        verify(channel, never()).publish(any());
+    }
+
+    @Test
+    void midnightReminderOnTimedScheduleFails() {
+        var reminder = dueReminder(5L, 11L);
+        reminder.setKind(ReminderKind.MIDNIGHT);
+        when(reminders.returnStuckToPending(any(), any(), any())).thenReturn(0);
+        when(reminders.expirePassed(any(), any(), any(), any(), any())).thenReturn(0);
+        when(reminders.lockDue(any(), any(), any(), any(), any(Pageable.class)))
+                .thenReturn(List.of(reminder));
+        when(schedulesRepo.findById(11L)).thenReturn(Optional.of(schedule()));
+
+        processor.processDue();
+
+        assertThat(reminder.getStatus()).isEqualTo(ReminderStatus.FAILED);
+        verify(commandJournal, never()).save(any());
+        verify(channel, never()).publish(any());
+    }
+
+    @Test
+    void midnightQueriesUseGraceCutoff() {
+        when(reminders.returnStuckToPending(any(), any(), any())).thenReturn(0);
+        when(reminders.expirePassed(any(), any(), any(), any(), any())).thenReturn(0);
+        when(reminders.lockDue(any(), any(), any(), any(), any(Pageable.class))).thenReturn(List.of());
+
+        processor.processDue();
+
+        var cutoff = NOW.minus(MIDNIGHT_GRACE);
+        verify(reminders).expirePassed(
+                eq(ReminderStatus.EXPIRED), eq(ReminderStatus.PENDING), eq(NOW),
+                eq(ReminderKind.MIDNIGHT), eq(cutoff));
+        verify(reminders).lockDue(
+                eq(ReminderStatus.PENDING), eq(NOW), eq(ReminderKind.MIDNIGHT),
+                eq(cutoff), any(Pageable.class));
     }
 
     private static Reminder dueReminder(long id, long scheduleId) {

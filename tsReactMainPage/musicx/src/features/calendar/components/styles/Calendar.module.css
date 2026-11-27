@@ -226,6 +226,25 @@
     font-variant-numeric: tabular-nums;
 }
 
+/* Плашка «Весь день» — в колонке времени, тем же акцентом. */
+.entryAllDay {
+    flex: 0 0 auto;
+    min-width: 42px;
+    font-size: 10.5px;
+    font-weight: 550;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Длительность при времени — мельче и приглушённее, но в той же строке. */
+.entryDuration {
+    font-weight: 500;
+    font-size: 11.5px;
+    color: var(--ink-3);
+}
+
 .entryBody {
     min-width: 0;
     display: flex;

@@ -2,6 +2,7 @@ package enerjy.musicxService.Logic.schedule;
 
 import enerjy.musicxService.LlmRequests.LlmRequestException;
 import enerjy.musicxService.Logic.schedule.parse.EventParser;
+import enerjy.musicxService.Logic.schedule.parse.Intent;
 import enerjy.musicxService.Logic.schedule.parse.ParsedEvent;
 import enerjy.musicxService.messaging.MessageTemplates;
 import enerjy.musicxService.messaging.contract.Channels;
@@ -65,6 +66,11 @@ import java.util.UUID;
  * processed_events: повторная доставка может снова попробовать (LLM был недоступен).
  * Зона пользователя пока берётся из конфига ({@code app.time-zone}), шаг 9
  * заменит её на зону из профиля.
+ *
+ * <p>Если модель распознала интент UPDATE/DELETE («перенеси…», «удали…»),
+ * после парсинга сценарий делегирует работу {@link ModifyScheduleUseCase}:
+ * дедупликация по eventId у них общая (один {@link #CONSUMER_ID}), поэтому
+ * повторная доставка любого интента обрабатывается одинаково.
  */
 @Service
 public class CreateScheduleUseCase {
@@ -76,6 +82,7 @@ public class CreateScheduleUseCase {
 
     private final EventParser eventParser;
     private final ScheduleValidator validator;
+    private final ModifyScheduleUseCase modifySchedule;
     private final userSchedulesRepo schedulesRepo;
     private final userService userService;
     private final ProcessedEventRepo processedEvents;
@@ -91,6 +98,7 @@ public class CreateScheduleUseCase {
     public CreateScheduleUseCase(
             EventParser eventParser,
             ScheduleValidator validator,
+            ModifyScheduleUseCase modifySchedule,
             userSchedulesRepo schedulesRepo,
             userService userService,
             ProcessedEventRepo processedEvents,
@@ -101,7 +109,7 @@ public class CreateScheduleUseCase {
             @Value("${app.time-zone:Europe/Moscow}") String timeZone,
             @Value("${app.reminders.offset:PT3H}") Duration reminderOffset
     ) {
-        this(eventParser, validator, schedulesRepo, userService, processedEvents, reminders,
+        this(eventParser, validator, modifySchedule, schedulesRepo, userService, processedEvents, reminders,
                 commandJournal, channels, transactions,
                 Clock.systemUTC(), ZoneId.of(timeZone), reminderOffset);
     }
@@ -109,6 +117,7 @@ public class CreateScheduleUseCase {
     CreateScheduleUseCase(
             EventParser eventParser,
             ScheduleValidator validator,
+            ModifyScheduleUseCase modifySchedule,
             userSchedulesRepo schedulesRepo,
             userService userService,
             ProcessedEventRepo processedEvents,
@@ -125,6 +134,7 @@ public class CreateScheduleUseCase {
         }
         this.eventParser = eventParser;
         this.validator = validator;
+        this.modifySchedule = modifySchedule;
         this.schedulesRepo = schedulesRepo;
         this.userService = userService;
         this.processedEvents = processedEvents;
@@ -160,6 +170,13 @@ public class CreateScheduleUseCase {
             log.warn("llm failed, eventId={}: {}", message.eventId(), e.getMessage());
             channel.publish(SendMessage.create(
                     message.channel(), conversationId, newCommandId(), MessageTemplates.LLM_FAILED));
+            return;
+        }
+
+        // Роутинг по интенту: правка/удаление существующей записи — другой сценарий
+        // с матчингом кандидатов, CREATE продолжает здесь.
+        if (parsed.intent() != Intent.CREATE) {
+            modifySchedule.handle(message, parsed);
             return;
         }
 
@@ -223,8 +240,15 @@ public class CreateScheduleUseCase {
         var schedule = new userSchedules();
         schedule.setUserId(user.getUserId());
         // Локальные поля для /calendar: фронт продолжает читать их без изменений.
-        schedule.setDate(validated.startAt().atZone(zone).toLocalDate());
-        schedule.setTime(validated.startAt().atZone(zone).toLocalTime());
+        if (validated.allDay()) {
+            // Безвременная запись: date берём из момента напоминания (это 00:00 дня
+            // события), time/startAt/endAt остаются пустыми — конкретного времени нет.
+            schedule.setDate(validated.remindAt().atZone(zone).toLocalDate());
+            schedule.setTime(null);
+        } else {
+            schedule.setDate(validated.startAt().atZone(zone).toLocalDate());
+            schedule.setTime(validated.startAt().atZone(zone).toLocalTime());
+        }
         schedule.setTitle(validated.title());
         schedule.setNote(validated.note());
         schedule.setStartAt(validated.startAt());
@@ -239,12 +263,18 @@ public class CreateScheduleUseCase {
     }
 
     private void createReminder(userSchedules schedule, ValidatedSchedule validated) {
-        var remindAt = validated.startAt().minus(reminderOffset);
         var reminder = new Reminder();
         reminder.setScheduleId(schedule.getSceduleId());
-        reminder.setKind(ReminderKind.T_MINUS_3H);
-        reminder.setRemindAt(remindAt);
-        reminder.setStatus(remindAt.isAfter(Instant.now(clock))
+        if (validated.allDay()) {
+            // «Весь день»: напоминание ровно в полночь дня события. Полночь уже
+            // прошла (событие создано днём) — отправлять задним числом не нужно.
+            reminder.setKind(ReminderKind.MIDNIGHT);
+            reminder.setRemindAt(validated.remindAt());
+        } else {
+            reminder.setKind(ReminderKind.T_MINUS_3H);
+            reminder.setRemindAt(validated.startAt().minus(reminderOffset));
+        }
+        reminder.setStatus(reminder.getRemindAt().isAfter(Instant.now(clock))
                 ? ReminderStatus.PENDING
                 : ReminderStatus.SKIPPED);
         reminders.save(reminder);

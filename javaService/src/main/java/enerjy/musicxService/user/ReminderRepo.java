@@ -20,9 +20,25 @@ public interface ReminderRepo extends JpaRepository<Reminder, Long> {
     List<Reminder> findByScheduleId(Long scheduleId);
 
     /**
+     * Массовое удаление напоминаний записи — при переносе (старое время больше
+     * не актуально) и удалении записи. Bulk JPQL (а не derived delete): срабатывает
+     * сразу в момент вызова, поэтому после него можно создать новое напоминание
+     * с тем же (schedule_id, kind), не упираясь в уникальный ключ.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("delete from Reminder r where r.scheduleId = :scheduleId")
+    void deleteByScheduleId(@Param("scheduleId") Long scheduleId);
+
+    /**
      * Напоминания, пора отправлять: remind_at наступил, событие ещё не началось.
      * Строковые блокировки (PESSIMISTIC_WRITE) + подсказка SKIP LOCKED не дают
      * параллельным тикам/инстансам схватить одни и те же строки.
+     *
+     * Для записей «весь день» ({@code startAt = null}) обычное условие
+     * {@code start_at > now} никогда бы не сработало — вместо него ветка по
+     * kind = MIDNIGHT: полночь уже наступила (remindAt <= now), но окно
+     * отправки не закрыто (remindAt > cutoff = now - grace). Так напоминание
+     * «сегодня: …» не уедет задним числом на следующий день.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "-2"))
@@ -31,11 +47,14 @@ public interface ReminderRepo extends JpaRepository<Reminder, Long> {
             where r.scheduleId = s.sceduleId
               and r.status = :status
               and r.remindAt <= :now
-              and s.startAt > :now
+              and ( (s.startAt is not null and s.startAt > :now)
+                 or (r.kind = :midnightKind and s.startAt is null and r.remindAt > :cutoff) )
             """)
     List<Reminder> lockDue(
             @Param("status") ReminderStatus status,
             @Param("now") Instant now,
+            @Param("midnightKind") ReminderKind midnightKind,
+            @Param("cutoff") Instant cutoff,
             Pageable pageable
     );
 
@@ -49,15 +68,22 @@ public interface ReminderRepo extends JpaRepository<Reminder, Long> {
             @Param("deadline") Instant deadline
     );
 
-    /** Событие уже началось — напоминание отправлять поздно. */
+    /**
+     * Событие уже началось — напоминание отправлять поздно. Для записей
+     * «весь день» события как такового нет, поэтому гасим MIDNIGHT-напоминания,
+     * чьё окно отправки (grace после полуночи) уже закрыто: remindAt < cutoff.
+     */
     @Modifying(clearAutomatically = true)
     @Query("update Reminder r set r.status = :to "
             + "where r.status = :from "
-            + "and exists (select 1 from userSchedules s "
-            + "            where s.sceduleId = r.scheduleId and s.startAt < :now)")
+            + "and ( exists (select 1 from userSchedules s "
+            + "            where s.sceduleId = r.scheduleId and s.startAt is not null and s.startAt < :now) "
+            + "   or (r.kind = :midnightKind and r.remindAt < :cutoff) )")
     int expirePassed(
             @Param("to") ReminderStatus to,
             @Param("from") ReminderStatus from,
-            @Param("now") Instant now
+            @Param("now") Instant now,
+            @Param("midnightKind") ReminderKind midnightKind,
+            @Param("cutoff") Instant cutoff
     );
 }

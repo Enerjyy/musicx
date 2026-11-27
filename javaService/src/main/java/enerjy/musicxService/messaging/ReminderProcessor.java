@@ -8,6 +8,7 @@ import enerjy.musicxService.user.CommandJournalEntry;
 import enerjy.musicxService.user.CommandJournalRepo;
 import enerjy.musicxService.user.CommandPurpose;
 import enerjy.musicxService.user.Reminder;
+import enerjy.musicxService.user.ReminderKind;
 import enerjy.musicxService.user.ReminderRepo;
 import enerjy.musicxService.user.ReminderStatus;
 import enerjy.musicxService.user.userSchedules;
@@ -59,6 +60,7 @@ public class ReminderProcessor {
     private final Clock clock;
     private final Duration stuckAfter;
     private final Duration reminderOffset;
+    private final Duration midnightGrace;
     private final int batchSize;
 
     @Autowired
@@ -70,10 +72,11 @@ public class ReminderProcessor {
             TransactionTemplate transactions,
             @Value("${app.reminders.stuck-after:PT10M}") Duration stuckAfter,
             @Value("${app.reminders.offset:PT3H}") Duration reminderOffset,
+            @Value("${app.reminders.midnight-grace:PT6H}") Duration midnightGrace,
             @Value("${app.reminders.batch-size:50}") int batchSize
     ) {
         this(reminders, schedulesRepo, commandJournal, channels, transactions,
-                Clock.systemUTC(), stuckAfter, reminderOffset, batchSize);
+                Clock.systemUTC(), stuckAfter, reminderOffset, midnightGrace, batchSize);
     }
 
     ReminderProcessor(
@@ -85,6 +88,7 @@ public class ReminderProcessor {
             Clock clock,
             Duration stuckAfter,
             Duration reminderOffset,
+            Duration midnightGrace,
             int batchSize
     ) {
         if (stuckAfter.isNegative() || stuckAfter.isZero()) {
@@ -92,6 +96,9 @@ public class ReminderProcessor {
         }
         if (reminderOffset.isNegative()) {
             throw new IllegalArgumentException("reminder offset must not be negative");
+        }
+        if (midnightGrace.isNegative() || midnightGrace.isZero()) {
+            throw new IllegalArgumentException("midnight grace must be positive");
         }
         if (batchSize <= 0) {
             throw new IllegalArgumentException("batch-size must be positive");
@@ -104,6 +111,7 @@ public class ReminderProcessor {
         this.clock = clock;
         this.stuckAfter = stuckAfter;
         this.reminderOffset = reminderOffset;
+        this.midnightGrace = midnightGrace;
         this.batchSize = batchSize;
     }
 
@@ -116,13 +124,16 @@ public class ReminderProcessor {
             if (rescued > 0) {
                 log.info("returned stuck reminders to pending: count={}", rescued);
             }
-            int expired = reminders.expirePassed(ReminderStatus.EXPIRED, ReminderStatus.PENDING, now);
+            int expired = reminders.expirePassed(
+                    ReminderStatus.EXPIRED, ReminderStatus.PENDING, now,
+                    ReminderKind.MIDNIGHT, now.minus(midnightGrace));
             if (expired > 0) {
                 log.info("expired reminders whose events already started: count={}", expired);
             }
 
             var due = reminders.lockDue(
-                    ReminderStatus.PENDING, now, PageRequest.of(0, batchSize, Sort.by("remindAt")));
+                    ReminderStatus.PENDING, now, ReminderKind.MIDNIGHT,
+                    now.minus(midnightGrace), PageRequest.of(0, batchSize, Sort.by("remindAt")));
             for (Reminder reminder : due) {
                 claim(reminder, now);
             }
@@ -135,7 +146,28 @@ public class ReminderProcessor {
         reminder.setAttempts(reminder.getAttempts() + 1);
 
         var schedule = schedulesRepo.findById(reminder.getScheduleId()).orElse(null);
-        if (schedule == null || schedule.getSourceChannel() == null || schedule.getStartAt() == null) {
+        if (schedule == null || schedule.getSourceChannel() == null) {
+            log.warn("reminder has no usable schedule, failing: reminderId={}, scheduleId={}",
+                    reminder.getId(), reminder.getScheduleId());
+            reminder.setStatus(ReminderStatus.EXPIRED);
+            return;
+        }
+        // «Весь день»: события нет, отправляем в окно полуночи; вышедшие за окно
+        // (долгий простой тика) гасим, чтобы «сегодня: …» не уехало задним числом.
+        if (reminder.getKind() == ReminderKind.MIDNIGHT) {
+            if (schedule.getStartAt() != null) {
+                log.warn("MIDNIGHT reminder on a timed schedule, failing: reminderId={}, scheduleId={}",
+                        reminder.getId(), reminder.getScheduleId());
+                reminder.setStatus(ReminderStatus.FAILED);
+                return;
+            }
+            if (reminder.getRemindAt().isBefore(now.minus(midnightGrace))) {
+                log.info("MIDNIGHT reminder missed its grace window: reminderId={}, scheduleId={}",
+                        reminder.getId(), reminder.getScheduleId());
+                reminder.setStatus(ReminderStatus.EXPIRED);
+                return;
+            }
+        } else if (schedule.getStartAt() == null) {
             log.warn("reminder has no usable schedule, failing: reminderId={}, scheduleId={}",
                     reminder.getId(), reminder.getScheduleId());
             reminder.setStatus(ReminderStatus.EXPIRED);
@@ -162,7 +194,7 @@ public class ReminderProcessor {
                         schedule.getSourceChannel(),
                         schedule.getSourceConversationId(),
                         commandId,
-                        MessageTemplates.reminder(schedule, reminderOffset)));
+                        MessageTemplates.reminder(schedule, reminder, reminderOffset)));
             }
         });
     }

@@ -11,7 +11,7 @@ class CalendarEntryDtoTest {
 
     @Test
     void serializesIdAndEndTime() throws Exception {
-        var dto = new CalendarEntryDto(5L, "2026-11-27", "15:00", "16:00", "Урок", "заметка");
+        var dto = new CalendarEntryDto(5L, "2026-11-27", "15:00", "16:00", "Урок", "заметка", null);
 
         var json = mapper.readTree(mapper.writeValueAsString(dto));
 
@@ -26,7 +26,7 @@ class CalendarEntryDtoTest {
     /** Старый фронт читает date/time/title/note и игнорирует неизвестные поля. */
     @Test
     void oldClientStillSeesAllLegacyFields() throws Exception {
-        var dto = new CalendarEntryDto(5L, "2026-11-27", "15:00", null, null, null);
+        var dto = new CalendarEntryDto(5L, "2026-11-27", "15:00", null, null, null, null);
 
         var json = mapper.readTree(mapper.writeValueAsString(dto));
 
@@ -38,6 +38,20 @@ class CalendarEntryDtoTest {
         assertThat(json.has("endTime")).isFalse();
         assertThat(json.has("title")).isFalse();
         assertThat(json.has("note")).isFalse();
+        assertThat(json.has("allDay")).isFalse();
+    }
+
+    /** Безвременная запись: time отсутствует, allDay = true. */
+    @Test
+    void allDayEntrySerializesWithoutTimeAndWithAllDayTrue() throws Exception {
+        var dto = new CalendarEntryDto(7L, "2026-11-28", null, null, "Репетиция", null, Boolean.TRUE);
+
+        var json = mapper.readTree(mapper.writeValueAsString(dto));
+
+        assertThat(json.get("allDay").asBoolean()).isTrue();
+        assertThat(json.has("time")).isFalse();
+        assertThat(json.has("endTime")).isFalse();
+        assertThat(json.get("title").asText()).isEqualTo("Репетиция");
     }
 
     @Test

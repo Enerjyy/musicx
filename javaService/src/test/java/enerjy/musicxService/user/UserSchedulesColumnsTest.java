@@ -15,8 +15,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Новые колонки расписания (Шаг 4): абсолютное время, снимок зоны, статус,
- * источник для дедупликации. Заодно проверяется, что Flyway-миграции V6+V7
- * накатываются, а Hibernate validate согласен со схемой.
+ * источник для дедупликации. Заодно проверяется, что Flyway-миграции V6+V7+V11
+ * накатываются, а Hibernate validate согласен со схемой: с V11 колонка time
+ * nullable (безвременные записи «весь день»), остальные поля по-прежнему NOT NULL.
  */
 @SpringBootTest
 @Transactional
@@ -81,6 +82,24 @@ class UserSchedulesColumnsTest {
 
         assertThat(repo.saveAndFlush(one).getSceduleId()).isNotNull();
         assertThat(repo.saveAndFlush(two).getSceduleId()).isNotNull();
+    }
+
+    /**
+     * Безвременная запись «весь день» (V11): time = NULL сохраняется без ошибок.
+     * Дата и остальные обязательные поля остаются NOT NULL — день события известен,
+     * отсутствует только момент внутри дня.
+     */
+    @Test
+    void timelessEntryWithoutTimePersists() {
+        var entry = newEntry("TELEGRAM", "conv-" + System.nanoTime(), "3001");
+        entry.setTime(null);
+
+        var saved = repo.saveAndFlush(entry);
+
+        var loaded = repo.findById(saved.getSceduleId()).orElseThrow();
+        assertThat(loaded.getTime()).isNull();
+        assertThat(loaded.getDate()).isEqualTo(LocalDate.of(2026, 11, 27));
+        assertThat(loaded.getTitle()).isEqualTo("Урок");
     }
 
     private static userSchedules newEntry(String channel, String conversation, String messageId) {
